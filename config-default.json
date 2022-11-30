@@ -1,0 +1,9 @@
+{
+	"port": 4444,
+	"serverName": "nexton",
+	"tlsCrtFile": "certs/nexton.crt",
+	"tlsKeyFile": "certs/nexton.key",
+	"usr": "admin",
+	"pwd": "mike",
+	"dummyPort": 0
+}
