@@ -3,8 +3,10 @@ package filesys
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +30,20 @@ func ModifiedHttpDate(fn string) (string, error) {
 		return "", err
 	}
 	return fileInfo.ModTime().In(gmtTimeLoc).Format(http.TimeFormat), nil
+}
+
+func IsGzip(fn string) (bool, error) {
+	f, err := os.Open(fn)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	b := []byte{0, 0, 0}
+	_, err = f.Read(b)
+	if err != nil {
+		return false, err
+	}
+	return b[0] == 0x1f && b[1] == 0x8b && b[2] == 0x08, nil
 }
 
 func CreateDir(dir string) error {
@@ -85,21 +101,34 @@ func CopyOrDelete(src io.Reader, dst string) (int64, error) {
 	return written, nil
 }
 
-func Delete(fn string) error {
+func Copy(fn string, w io.Writer) (int64, error) {
+	f, err := os.Open(fn)
+	if err != nil {
+		return -1, err
+	}
+	defer f.Close()
+	return io.Copy(w, f)
+}
+
+func DeleteFile(fn string) error {
 	return os.Remove(fn)
+}
+
+func DeleteDir(dir string) error {
+	return os.RemoveAll(dir)
 }
 
 func RenameOrDelete(src, dst string) error {
 	dir := filepath.Dir(dst)
 	err := CreateDir(dir)
 	if err != nil {
-		Delete(src)
+		DeleteFile(src)
 		return err
 	}
 	err = os.Rename(src, dst)
 	if err != nil {
-		Delete(src)
-		Delete(dst)
+		DeleteFile(src)
+		DeleteFile(dst)
 	}
 	return err
 }
@@ -112,12 +141,98 @@ func WriteBuffer(fn string, data []byte) (int, error) {
 
 	len, err := f.Write(data)
 	if err != nil {
-		Delete(fn)
+		DeleteFile(fn)
 		return -1, err
 	}
 
 	err = CloseFileOrDelete(f)
 	return len, err
+}
+
+func GetFirstFilenameInDir(dir string) (string, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	fns, err := f.Readdirnames(1)
+	if err != nil {
+		return "", nil
+	}
+	if len(fns) == 0 {
+		return "", nil
+	}
+	return fns[0], nil
+}
+
+func GetAllFilenamesInDir(dir string) ([]string, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fns, err := f.Readdirnames(-1)
+	if err != nil {
+		return nil, nil
+	}
+	return fns, nil
+}
+
+// depth-first
+func FindFile(dir, fn string) (string, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return "", err
+	}
+	fns, err := f.Readdirnames(-1)
+	f.Close()
+	if err != nil {
+		return "", nil
+	}
+	for _, child := range fns {
+		joined := filepath.Join(dir, child)
+		var stat fs.FileInfo = nil
+		isDir := true
+		if child == fn {
+			stat, err = os.Stat(joined)
+			if err != nil {
+				return "", err
+			}
+			isDir = stat.IsDir()
+			if !isDir {
+				return joined, nil
+			}
+		}
+		// Note that if stat != nil then isDir is already valid
+		if stat == nil {
+			stat, err = os.Stat(joined)
+			if err != nil {
+				return "", err
+			}
+			isDir = stat.IsDir()
+		}
+		if isDir {
+			sub, err := FindFile(joined, fn)
+			if sub != "" {
+				return sub, err
+			}
+		}
+	}
+	return "", nil
+}
+
+func ReadJson(fn string) (map[string]any, error) {
+	f, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	m := map[string]any{}
+	err = json.NewDecoder(f).Decode(&m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func CreateDigestFromFile(fn string) (string, error) {

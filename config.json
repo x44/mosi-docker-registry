@@ -1,10 +1,35 @@
 {
-	"port": 5041,
-	"serverName": "nexton",
+	"repoDir": "repo",
+	"serverHost": "nexton",
+	"serverPort": 5041,
 	"tlsCrtFile": "",
 	"tlsKeyFile": "",
-	"usr": "admin",
-	"pwd": "mike",
-	"dummyPort": 543,
-	"repoDir": "repo"
+	"proxyHost": "",
+	"proxyPort": 0,
+	"proxyProtocol": "",
+	"accounts": [
+		{
+			"usr": "admin",
+			"pwd": "admin",
+			"images": [
+				{
+					"name": "*",
+					"pull": true,
+					"push": true
+				}
+			]
+		},
+		{
+			"usr": "anonymous",
+			"pwd": "",
+			"images": [
+				{
+					"name": "*",
+					"pull": true,
+					"push": false
+				}
+			]
+		}
+	],
+	"allowAnonymousPull": true
 }

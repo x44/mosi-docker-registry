@@ -4,6 +4,7 @@ import (
 	"docker-repo/pkg/log"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"strconv"
 )
@@ -11,25 +12,46 @@ import (
 const LOG = "Config"
 
 type config struct {
-	Port       int    `json:"port"`
-	ServerName string `json:"serverName"`
-	TlsCrtFile string `json:"tlsCrtFile"`
-	TlsKeyFile string `json:"tlsKeyFile"`
-	Usr        string `json:"usr"`
-	Pwd        string `json:"pwd"`
-	// TODO remove
-	DummyPort int    `json:"dummyPort"`
-	RepoDir   string `json:"repoDir"`
+	RepoDir            string    `json:"repoDir"`
+	ServerHost         string    `json:"serverHost"`
+	ServerPort         int       `json:"serverPort"`
+	TlsCrtFile         string    `json:"tlsCrtFile"`
+	TlsKeyFile         string    `json:"tlsKeyFile"`
+	ProxyHost          string    `json:"proxyHost"`
+	ProxyPort          int       `json:"proxyPort"`
+	ProxyProtocol      string    `json:"proxyProtocol"`
+	Accounts           []account `json:"accounts"`
+	AllowAnonymousPull bool      `json:"allowAnonymousPull"`
+}
+
+type account struct {
+	Usr    string  `json:"usr"`
+	Pwd    string  `json:"pwd"`
+	Images []image `json:"images"`
+}
+
+type image struct {
+	Name string `json:"name"`
+	Pull bool   `json:"pull"`
+	Push bool   `json:"push"`
 }
 
 var cfg config
 
-func Port() int {
-	return cfg.Port
+func RepoDir() string {
+	return cfg.RepoDir
 }
 
-func ServerName() string {
-	return cfg.ServerName
+func ServerHost() string {
+	return cfg.ServerHost
+}
+
+func ServerPort() int {
+	return cfg.ServerPort
+}
+
+func ServerAddress() string {
+	return ServerHost() + ":" + strconv.Itoa(ServerPort())
 }
 
 func TlsCrtFile() string {
@@ -40,24 +62,52 @@ func TlsKeyFile() string {
 	return cfg.TlsKeyFile
 }
 
-func Usr() string {
-	return cfg.Usr
+func TlsEnabled() bool {
+	return TlsCrtFile() != "" && TlsKeyFile() != ""
 }
 
-func Pwd() string {
-	return cfg.Pwd
-}
+// Returns the server's address, taking into account an upstream reverse proxy.
+func ServerUrl(r *http.Request) string {
 
-func ServerAddress() string {
-	var portStr = ""
-	port := Port()
-	if cfg.DummyPort > 0 {
-		port = cfg.DummyPort
+	host := r.Host
+	port := ServerPort()
+
+	isTls := TlsEnabled()
+	protocol := "http"
+	if isTls {
+		protocol = "https"
 	}
-	if port != 443 {
-		portStr = ":" + strconv.Itoa(port)
+
+	// override with request proxy header fields
+	reqPort := r.Header.Get("X-Forwarded-Port")
+	reqProtocol := r.Header.Get("X-Forwarded-Proto")
+	if reqPort != "" {
+		p, err := strconv.Atoi(reqPort)
+		if err == nil {
+			port = p
+		}
 	}
-	return "https://" + ServerName() + portStr
+	if reqProtocol != "" {
+		protocol = reqProtocol
+	}
+
+	// override with config proxy settings
+	if cfg.ProxyHost != "" {
+		host = cfg.ProxyHost
+	}
+	if cfg.ProxyPort > 0 {
+		port = cfg.ProxyPort
+	}
+	if cfg.ProxyProtocol != "" {
+		protocol = cfg.ProxyProtocol
+	}
+
+	var portStr = ":" + strconv.Itoa(port)
+	if (port == 80 && !isTls) || (port == 443 && isTls) {
+		portStr = ""
+	}
+
+	return protocol + "://" + host + portStr
 }
 
 func ServerPath() string {
@@ -68,19 +118,117 @@ func ServerTokenPath() string {
 	return ServerPath() + "/token"
 }
 
-func RepoDir() string {
-	return cfg.RepoDir
+func AllowAnonymousPull() bool {
+	return cfg.AllowAnonymousPull
+}
+
+func GetAccountImageAccessRights(usr, pwd string, allowAnonymous bool) (imagesAllowedToPull []string, imagesAllowedToPush []string) {
+	imagesAllowedToPull = nil
+	imagesAllowedToPush = nil
+
+	usr, allowed := mapAndCheckAnonymousAccess(usr, allowAnonymous)
+	if !allowed {
+		return
+	}
+
+	// TODO de-uglify this
+	for _, account := range cfg.Accounts {
+		if account.Usr == usr {
+			if account.Pwd == pwd {
+				for _, image := range account.Images {
+					if image.Pull {
+						imagesAllowedToPull = append(imagesAllowedToPull, image.Name)
+					}
+					if image.Push {
+						imagesAllowedToPush = append(imagesAllowedToPush, image.Name)
+					}
+				}
+				return
+			}
+			return
+		}
+	}
+	return
+}
+
+func GetScopeImageAccessRights(imageName, usr, pwd string, allowAnonymous bool) (imagesAllowedToPull []string, imagesAllowedToPush []string) {
+	imagesAllowedToPull = nil
+	imagesAllowedToPush = nil
+
+	usr, allowed := mapAndCheckAnonymousAccess(usr, allowAnonymous)
+	if !allowed {
+		return
+	}
+
+	// TODO de-uglify this
+	for _, account := range cfg.Accounts {
+		if account.Usr == usr {
+			if account.Pwd == pwd {
+				for _, image := range account.Images {
+					if image.Name == imageName || image.Name == "*" {
+						if image.Pull {
+							imagesAllowedToPull = append(imagesAllowedToPull, imageName)
+						}
+						if image.Push {
+							imagesAllowedToPush = append(imagesAllowedToPush, imageName)
+						}
+						return
+					}
+				}
+				return
+			}
+			return
+		}
+	}
+	return
+}
+
+func mapAndCheckAnonymousAccess(usr string, allowAnonymous bool) (string, bool) {
+	if usr == "" {
+		usr = "anonymous"
+	}
+
+	if usr == "anonymous" && (!allowAnonymous || !AllowAnonymousPull()) {
+		return usr, false
+	}
+	return usr, true
 }
 
 func initDefaults() {
-	cfg.Port = 4444
-	cfg.ServerName = "nexton"
+	cfg.RepoDir = "repo"
+	cfg.ServerHost = "nexton"
+	cfg.ServerPort = 4444
 	cfg.TlsCrtFile = "certs/nexton.crt"
 	cfg.TlsKeyFile = "certs/nexton.key"
-	cfg.Usr = "admin"
-	cfg.Pwd = "mike"
-	cfg.DummyPort = 0
-	cfg.RepoDir = "repo"
+	cfg.ProxyHost = ""
+	cfg.ProxyPort = 0
+	cfg.ProxyProtocol = ""
+	cfg.AllowAnonymousPull = true
+
+	cfg.Accounts = []account{
+		{
+			Usr: "admin",
+			Pwd: "admin",
+			Images: []image{
+				{
+					Name: "*",
+					Pull: true,
+					Push: true,
+				},
+			},
+		},
+		{
+			Usr: "anonymous",
+			Pwd: "",
+			Images: []image{
+				{
+					Name: "*",
+					Pull: true,
+					Push: false,
+				},
+			},
+		},
+	}
 }
 
 func writeConfig() {

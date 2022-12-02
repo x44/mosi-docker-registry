@@ -1,9 +1,0 @@
-{
-	"port": 7777,
-	"serverName": "nexton",
-	"tlsCrtFile": "",
-	"tlsKeyFile": "",
-	"usr": "admin",
-	"pwd": "mike",
-	"dummyPort": 443
-}

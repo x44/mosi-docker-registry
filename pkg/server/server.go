@@ -4,7 +4,6 @@ import (
 	"docker-repo/pkg/config"
 	"docker-repo/pkg/log"
 	"docker-repo/pkg/repo"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,19 +14,17 @@ import (
 const LOG = "SERVER"
 
 func Start() {
-	// TODO
-	// host := config.ServerName() + ":" + strconv.Itoa(config.Port())
-	host := ":" + strconv.Itoa(config.Port())
-	log.Info(LOG, "starting "+host)
+	addr := config.ServerAddress()
+	log.Info(LOG, "starting "+addr)
 
-	http.HandleFunc(config.ServerPath()+"/", route)
-	http.HandleFunc(config.ServerTokenPath()+"/", routeToken)
+	http.HandleFunc(config.ServerPath()+"/", route)       // trailing / is required
+	http.HandleFunc(config.ServerTokenPath(), routeToken) // trailing / not allowed, otherwise all /v2/token?xxx requests get redirected
 
 	var err error
-	if config.TlsCrtFile() != "" && config.TlsKeyFile() != "" {
-		err = http.ListenAndServeTLS(host, config.TlsCrtFile(), config.TlsKeyFile(), nil)
+	if config.TlsEnabled() {
+		err = http.ListenAndServeTLS(addr, config.TlsCrtFile(), config.TlsKeyFile(), nil)
 	} else {
-		err = http.ListenAndServe(host, nil)
+		err = http.ListenAndServe(addr, nil)
 	}
 	if err != nil {
 		log.Fatal(LOG, err.Error())
@@ -35,6 +32,7 @@ func Start() {
 }
 
 func route(w http.ResponseWriter, r *http.Request) {
+	PrintReq(r)
 	if !checkHost(w, r) {
 		return
 	}
@@ -55,6 +53,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 }
 
 func routeToken(w http.ResponseWriter, r *http.Request) {
+	PrintReq(r)
 	if !checkHost(w, r) {
 		return
 	}
@@ -67,66 +66,100 @@ func routeToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetToken(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	query.Get("account")
-	query.Get("client_id")
-	query.Get("offline_token")
-	query.Get("service")
+	token := CreateAndStoreTokenFromBasicAuth(r)
+	if token == "" {
+		w.WriteHeader(403)
+		return
+	}
 
-	auth := r.Header.Get("Authorization")
-
-	if !strings.HasPrefix(auth, "Basic ") {
-		w.WriteHeader(403)
-		return
-	}
-	dec, err := base64.StdEncoding.DecodeString(auth[6:])
-	if err != nil {
-		log.Fatal(LOG, err.Error())
-		w.WriteHeader(403)
-		return
-	}
-	usrpwd := string(dec)
-	sep := strings.Index(usrpwd, ":")
-	if sep == -1 {
-		w.WriteHeader(403)
-		return
-	}
-	usr := usrpwd[:sep]
-	pwd := usrpwd[sep+1:]
-
-	if usr != config.Usr() || pwd != config.Pwd() {
-		w.WriteHeader(403)
-		return
-	}
+	setDefaultHeader(w)
 
 	rsp := map[string]any{
-		"token": CreateToken(),
+		"token": token,
 	}
 	sendJson(w, 200, &rsp)
 }
 
 func handleGet(w http.ResponseWriter, r *http.Request) {
-	if !checkAuthToken(w, r) {
+	paths := splitPath(r)
+
+	// /v2/
+	if len(paths) == 1 {
+		if !checkRootAuth(w, r) {
+			return
+		}
+		w.WriteHeader(200)
+		return
+	}
+
+	// /v2/imagename/blobs/digest
+	if len(paths) == 4 && paths[2] == "blobs" {
+		handleGetBlob(w, r)
+		return
+	}
+
+	// /v2/imagename/manifests/digest
+	if len(paths) == 4 && paths[2] == "manifests" {
+		handleGetManifest(w, r)
 		return
 	}
 	w.WriteHeader(404)
 }
 
-func handleHead(w http.ResponseWriter, r *http.Request) {
-	if !checkAuthToken(w, r) {
-		return
-	}
-
-	// /v2/imagename/blobs/sha256:2279fc1f015f997d179c41693a6903e195f012a8dbe390d15bbc2f292b2da996
+func handleGetBlob(w http.ResponseWriter, r *http.Request) {
 	paths := splitPath(r)
-	if len(paths) != 4 || paths[2] != "blobs" {
-		w.WriteHeader(404)
-		return
-	}
-
 	img := paths[1]
 	digest := paths[3]
-	log.Info(LOG, "HEAD img "+img)
+
+	if !checkPullAuth(w, r, img) {
+		return
+	}
+
+	setDefaultHeader(w)
+
+	repo.DownloadBlob(img, digest, w)
+}
+
+func handleGetManifest(w http.ResponseWriter, r *http.Request) {
+	paths := splitPath(r)
+	img := paths[1]
+	digest := paths[3]
+
+	if !checkPullAuth(w, r, img) {
+		return
+	}
+
+	setDefaultHeader(w)
+
+	repo.DownloadManifest(img, digest, w)
+}
+
+func handleHead(w http.ResponseWriter, r *http.Request) {
+	paths := splitPath(r)
+	img := paths[1]
+
+	if !checkPullAuth(w, r, img) {
+		return
+	}
+
+	// /v2/imagename/blobs/digest
+	if len(paths) == 4 && paths[2] == "blobs" {
+		handleHeadBlob(w, r)
+		return
+	}
+
+	// /v2/imagename/manifests/latest
+	if len(paths) == 4 && paths[2] == "manifests" {
+		handleHeadManifest(w, r)
+		return
+	}
+	w.WriteHeader(404)
+}
+
+func handleHeadBlob(w http.ResponseWriter, r *http.Request) {
+	paths := splitPath(r)
+	img := paths[1]
+	digest := paths[3]
 
 	exists, len, modified := repo.ExistsBlob(img, digest)
 
@@ -146,11 +179,29 @@ func handleHead(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlePost(w http.ResponseWriter, r *http.Request) {
-	if !checkAuthToken(w, r) {
-		return
-	}
+func handleHeadManifest(w http.ResponseWriter, r *http.Request) {
+	paths := splitPath(r)
+	img := paths[1]
+	tag := paths[3]
 
+	exists, len, modified, digest := repo.ExistsManifest(img, tag)
+
+	if exists {
+		setDefaultHeader(w)
+
+		w.Header().Set("Docker-Content-Digest", digest)
+		w.Header().Set("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
+		w.Header().Set("Last-Modified", modified)
+		w.Header().Set("Content-Length", strconv.FormatInt(len, 10))
+
+		w.WriteHeader(200)
+	} else {
+		setDefaultHeader(w)
+		w.WriteHeader(404)
+	}
+}
+
+func handlePost(w http.ResponseWriter, r *http.Request) {
 	// /v2/imagename/blobs/uploads
 	paths := splitPath(r)
 	if len(paths) != 4 || paths[2] != "blobs" || paths[3] != "uploads" {
@@ -159,7 +210,10 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	img := paths[1]
-	log.Info(LOG, "POST img "+img)
+
+	if !checkPushAuth(w, r, img) {
+		return
+	}
 
 	setDefaultHeader(w)
 
@@ -174,12 +228,7 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePatch(w http.ResponseWriter, r *http.Request) {
-	if !checkAuthToken(w, r) {
-		return
-	}
-
-	// /v2/imagename/blobs/uploads/e81b3c5f-d53b-4ac1-b6e1-feaedc063cc7
-
+	// /v2/imagename/blobs/uploads/uploadUuid
 	paths := splitPath(r)
 	if len(paths) != 5 || paths[2] != "blobs" || paths[3] != "uploads" {
 		w.WriteHeader(404)
@@ -188,8 +237,12 @@ func handlePatch(w http.ResponseWriter, r *http.Request) {
 
 	img := paths[1]
 	uploadUuid := paths[4]
+
+	if !checkPushAuth(w, r, img) {
+		return
+	}
+
 	uploadPath := repo.GetBlobUploadUrlPath(img, uploadUuid)
-	log.Info(LOG, "PATCH img "+img+" uploadUuid "+uploadUuid)
 
 	setDefaultHeader(w)
 
@@ -210,11 +263,12 @@ func handlePatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePut(w http.ResponseWriter, r *http.Request) {
-	if !checkAuthToken(w, r) {
+	paths := splitPath(r)
+	img := paths[1]
+
+	if !checkPushAuth(w, r, img) {
 		return
 	}
-
-	paths := splitPath(r)
 
 	// /v2/imagename/blobs/uploads/uploadUid?digest=sha256%3A2279fc1f015f997d179c41693a6903e195f012a8dbe390d15bbc2f292b2da996
 	if len(paths) == 5 && paths[2] == "blobs" && paths[3] == "uploads" {
@@ -222,7 +276,7 @@ func handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// /v2/imagename/manifests/version
+	// /v2/imagename/manifests/tag
 	if len(paths) == 4 && paths[2] == "manifests" {
 		handlePutManifest(w, r)
 		return
@@ -236,11 +290,10 @@ func handlePutBlob(w http.ResponseWriter, r *http.Request) {
 	img := paths[1]
 	uploadUuid := paths[4]
 	digest := query.Get("digest")
-	log.Info(LOG, "PUT (blob) img "+img+" uploadUuid "+uploadUuid+" digest "+digest)
 
 	setDefaultHeader(w)
 
-	len, uri, digest, err := repo.PutBlob(img, uploadUuid, digest)
+	len, uri, digest, err := repo.PutBlob(img, uploadUuid, digest, r)
 	if err != nil {
 		log.Error(LOG, "put blob failed: "+err.Error())
 		w.WriteHeader(500)
@@ -257,13 +310,11 @@ func handlePutBlob(w http.ResponseWriter, r *http.Request) {
 func handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	paths := splitPath(r)
 	img := paths[1]
-	version := paths[3]
-
-	log.Info(LOG, "PUT (manifest) img "+img+" version "+version)
+	tag := paths[3]
 
 	setDefaultHeader(w)
 
-	digest, modified, content, err := repo.UploadManifest(img, version, r.Body)
+	digest, modified, content, err := repo.UploadManifest(img, tag, r.Body)
 
 	if err != nil {
 		log.Error(LOG, "upload manifest failed: "+err.Error())
@@ -290,65 +341,48 @@ func checkHost(w http.ResponseWriter, r *http.Request) bool {
 		host = host[:strings.Index(host, ":")]
 	}
 
-	log.Info(LOG, "METHOD: "+r.Method+" HOST: "+host+" PATH: "+r.URL.Path)
-
-	if host != config.ServerName() {
+	if host != config.ServerHost() {
 		w.WriteHeader(404)
 		return false
 	}
 	return true
 }
 
-func checkAuthToken(w http.ResponseWriter, r *http.Request) bool {
-	token := r.Header.Get("Authorization")
+func checkRootAuth(w http.ResponseWriter, r *http.Request) bool {
+	return checkAuth(w, r, "", false, false)
+}
 
-	if !ValidateToken(token) {
-		tokenUrl := config.ServerAddress() + config.ServerTokenPath()
-		setDefaultHeader(w)
-		w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="%s",service="%s"`, tokenUrl, tokenUrl))
+func checkPullAuth(w http.ResponseWriter, r *http.Request, img string) bool {
+	return checkAuth(w, r, img, true, false)
+}
 
-		sendError(w, 401, "UNAUTHORIZED", "access to the requested resource is not authorized")
-		return false
+func checkPushAuth(w http.ResponseWriter, r *http.Request, img string) bool {
+	return checkAuth(w, r, img, true, true)
+}
+
+func checkAuth(w http.ResponseWriter, r *http.Request, img string, allowAnonymous, wantPush bool) bool {
+	if CheckAuth(r, img, allowAnonymous, wantPush) {
+		return true
 	}
 
-	// ----------------------------------------
-	// REQ 1
-	// ----------
-	// GET /v2/token?account=admin&client_id=docker&offline_token=true&service=https%3A%2F%2Fnexton%2Fv2%2Ftoken HTTP/1.0
-	// Host: nexton
-	// X-Real-IP: 192.168.0.3
-	// X-Forwarded-For: 192.168.0.3
-	// X-Forwarded-Proto: https
-	// Connection: close
-	// User-Agent: docker/19.03.12 go/go1.13.10 git-commit/48a66213fe kernel/4.19.130-boot2docker os/linux arch/amd64 UpstreamClient(Docker-Client/19.03.
-	// Authorization: Basic YWRtaW46bWlrZQ==
-	// Accept-Encoding: gzip
+	setDefaultHeader(w)
 
-	// no content
+	tokenUrl := config.ServerUrl(r) + config.ServerTokenPath()
+	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Bearer realm="%s", service="%s"`, tokenUrl, tokenUrl))
+	if allowAnonymous {
+		w.Header().Add("WWW-Authenticate", fmt.Sprintf(`BASIC realm="%s"`, "Mosi Docker Repository"))
+	}
 
-	// ----------------------------------------
-	// RSP 1
-	// ----------
-	// HTTP/1.1 200 OK
-	// Date: Tue, 29 Nov 2022 22:04:27 GMT
-	// Server: Nexus/3.42.0-01 (OSS)
-	// X-Content-Type-Options: nosniff
-	// Content-Security-Policy: sandbox allow-forms allow-modals allow-popups allow-presentation allow-scripts allow-top-navigation
-	// X-XSS-Protection: 1; mode=block
-	// Content-Type: application/json
-	// Content-Length: 60
-
-	// {"token":"DockerToken.3585cda7-b86a-3398-8f3f-755f60b8af24"}
-	//Authorization: Bearer DockerToken.3585cda7-b86a-3398-8f3f-755f60b8af24
-	return true
+	sendError(w, 401, "UNAUTHORIZED", "access to the requested resource is not authorized")
+	return false
 }
 
 func setDefaultHeader(w http.ResponseWriter) {
-	w.Header().Set("Server", "mosi/0.1")
+	w.Header().Set("Server", "Mosi Docker Repository/0.1")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "sandbox allow-forms allow-modals allow-popups allow-presentation allow-scripts allow-top-navigation")
 	w.Header().Set("X-XSS-Protection", "1; mode=block")
-	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+	w.Header().Set("Docker-Distribution-Api-Tag", "registry/2.0")
 }
 
 func sendError(w http.ResponseWriter, status int, code, msg string) {
