@@ -1,9 +1,9 @@
 package config
 
 import (
-	"docker-repo/pkg/log"
 	"encoding/json"
 	"io"
+	"mosi-docker-repo/pkg/log"
 	"net/http"
 	"os"
 	"strconv"

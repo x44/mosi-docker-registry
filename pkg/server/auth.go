@@ -1,9 +1,9 @@
 package server
 
 import (
-	"docker-repo/pkg/config"
-	"docker-repo/pkg/log"
 	"encoding/base64"
+	"mosi-docker-repo/pkg/config"
+	"mosi-docker-repo/pkg/log"
 	"net/http"
 	"strings"
 	"time"

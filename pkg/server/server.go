@@ -1,11 +1,11 @@
 package server
 
 import (
-	"docker-repo/pkg/config"
-	"docker-repo/pkg/log"
-	"docker-repo/pkg/repo"
 	"encoding/json"
 	"fmt"
+	"mosi-docker-repo/pkg/config"
+	"mosi-docker-repo/pkg/log"
+	"mosi-docker-repo/pkg/repo"
 	"net/http"
 	"strconv"
 	"strings"

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"docker-repo/pkg/config"
-	"docker-repo/pkg/server"
+	"mosi-docker-repo/pkg/config"
+	"mosi-docker-repo/pkg/server"
 )
 
 func main() {

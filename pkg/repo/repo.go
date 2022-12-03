@@ -1,11 +1,11 @@
 package repo
 
 import (
-	"docker-repo/pkg/config"
-	"docker-repo/pkg/filesys"
-	"docker-repo/pkg/log"
 	"errors"
 	"io"
+	"mosi-docker-repo/pkg/config"
+	"mosi-docker-repo/pkg/filesys"
+	"mosi-docker-repo/pkg/log"
 	"net/http"
 	"os"
 	"path/filepath"
