@@ -1,9 +1,9 @@
 {
 	"repoDir": "repo",
 	"serverHost": "nexton",
-	"serverPort": 5041,
-	"tlsCrtFile": "",
-	"tlsKeyFile": "",
+	"serverPort": 5555,
+	"tlsCrtFile": "certs/nexton.crt",
+	"tlsKeyFile": "certs/nexton.key",
 	"proxyHost": "",
 	"proxyPort": 0,
 	"proxyProtocol": "",

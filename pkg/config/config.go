@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const LOG = "Config"
@@ -69,7 +70,7 @@ func TlsEnabled() bool {
 // Returns the server's address, taking into account an upstream reverse proxy.
 func ServerUrl(r *http.Request) string {
 
-	host := r.Host
+	host := strings.Split(r.Host, ":")[0]
 	port := ServerPort()
 
 	isTls := TlsEnabled()
