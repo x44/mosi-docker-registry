@@ -1,15 +1,4 @@
 VERSION=$(shell (head -1 VERSION))
-$(info VERSION=$(VERSION))
-# $(error exiting)
-
-# usage: make release version=1.0.0
-ifeq (release,$(firstword $(MAKECMDGOALS)))
-ifeq ($(version),)
-$(error release target requires a version. run make release version=x.y.z)
-endif
-VERSION := $(version)
-endif
-
 
 ZIP_NAME				:= mosi-docker-repo
 
@@ -84,9 +73,6 @@ test:
 
 build-linux:
 	@echo "==> BUILD  LINUX"
-	pwd
-	echo "ROOT_DIR=$(ROOT_DIR)"
-	echo "BIN_DIR_LINUX=$(BIN_DIR_LINUX)"
 	@rm -Rf $(BIN_DIR_LINUX)
 	@GOOS=linux GOARCH=amd64 go build $(FLAGS) -o $(BIN_DIR_LINUX) ./cmd/mosi
 	@GOOS=linux GOARCH=amd64 go build $(FLAGS) -o $(BIN_TOOLS_DIR_LINUX) ./cmd/generate-server-certificate
@@ -159,10 +145,3 @@ zip-impl-windows:
 	cd $(ZIP_TMP_DIR); \
 	rm -f $(ZIP_FILE_WINDOWS); \
 	zip -q -r $(ZIP_FILE_WINDOWS) $(ZIP_NAME); \
-
-
-# tag:
-# 	@echo "==> TAGGING $(VERSION)"
-# 	@git tag -a $(VERSION) -m "Release $(VERSION)"
-# 	@echo "==> PUSHING $(VERSION)"
-# 	@git push origin $(VERSION)
