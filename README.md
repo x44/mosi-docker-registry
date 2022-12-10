@@ -75,12 +75,12 @@ Example Mosi config. The reverse proxy is at mosiproxy:443 and forwards to Mosi 
 ## Create a Self-Signed Certificate
 You can either
 - Use `tools/generate-server-certificate` from the Mosi binary distribution
-- Or use `scripts/generate-server-certificate.sh`
-- Or manually create the certificate with OpenSSL:
+- Use `scripts/generate-server-certificate.sh` from the Mosi binary distribution
+- Or follow the steps below:
 
 1) Create a certificate request file 'mosi.cfg' with the following content.<br>
-Replace DNS:mosi with the server name you configured in `server.name`.<br>
-Replace IP:addresses with the server's IP address(es).
+Replace DNS:mosi with the server name you configured in `server.name`<br>
+Replace IP:127.0.0.1,IP:192.168.1.2 with your server's IP address(es)
 
 ```
 [req]
@@ -98,7 +98,7 @@ extendedKeyUsage = serverAuth
 subjectAltName = DNS:mosi,IP:127.0.0.1,IP:192.168.1.2
 ```
 
-2) Run the following command to generate the .crt and .key files:
+2) Run the following command to generate the .crt and .key file
 ```
 openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout mosi.key -out mosi.crt -config mosi.cfg -extensions 'v3_req'
 ```
@@ -132,8 +132,8 @@ Please note, that this only applies to `Docker Toolbox` on Windows 7.
 
 You can either
 - Use `tools/configure-docker-toolbox` from the Mosi binary distribution
-- Or use `scripts/configure-docker-toolbox.sh`
-- Or manually:
+- Use `scripts/configure-docker-toolbox.sh` from the Mosi binary distribution
+- Or follow the steps below:
 
 Please note, that we `must` use the directory C:\Users\YOURNAME since this directory gets mounted as a shared folder in the Docker VM.
 
