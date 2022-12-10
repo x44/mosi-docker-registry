@@ -84,7 +84,10 @@ test:
 
 build-linux:
 	@echo "==> BUILD  LINUX"
-	@rm -R $(BIN_DIR_LINUX)
+	pwd
+	echo "ROOT_DIR=$(ROOT_DIR)"
+	echo "BIN_DIR_LINUX=$(BIN_DIR_LINUX)"
+	@rm -Rf $(BIN_DIR_LINUX)
 	@GOOS=linux GOARCH=amd64 go build $(FLAGS) -o $(BIN_DIR_LINUX) ./cmd/mosi
 	@GOOS=linux GOARCH=amd64 go build $(FLAGS) -o $(BIN_TOOLS_DIR_LINUX) ./cmd/generate-server-certificate
 	@GOOS=linux GOARCH=amd64 go build $(FLAGS) -o $(BIN_TOOLS_DIR_LINUX) ./cmd/configure-docker-toolbox
@@ -92,7 +95,7 @@ build-linux:
 
 build-macos:
 	@echo "==> BUILD  MACOS"
-	@rm -R $(BIN_DIR_MACOS)
+	@rm -Rf $(BIN_DIR_MACOS)
 	@GOOS=darwin GOARCH=amd64 go build $(FLAGS) -o $(BIN_DIR_MACOS) ./cmd/mosi
 	@GOOS=darwin GOARCH=amd64 go build $(FLAGS) -o $(BIN_TOOLS_DIR_MACOS) ./cmd/generate-server-certificate
 	@GOOS=darwin GOARCH=amd64 go build $(FLAGS) -o $(BIN_TOOLS_DIR_MACOS) ./cmd/configure-docker-toolbox
@@ -100,7 +103,7 @@ build-macos:
 
 build-windows:
 	@echo "==> BUILD  WINDOWS"
-	@rm -R $(BIN_DIR_WINDOWS)
+	@rm -Rf $(BIN_DIR_WINDOWS)
 	@GOOS=windows GOARCH=amd64 go build $(FLAGS) -o $(BIN_DIR_WINDOWS) ./cmd/mosi
 	@GOOS=windows GOARCH=amd64 go build $(FLAGS) -o $(BIN_TOOLS_DIR_WINDOWS) ./cmd/generate-server-certificate
 	@GOOS=windows GOARCH=amd64 go build $(FLAGS) -o $(BIN_TOOLS_DIR_WINDOWS) ./cmd/configure-docker-toolbox
