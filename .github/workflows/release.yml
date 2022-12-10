@@ -40,12 +40,38 @@ jobs:
           tag_name: ${{ env.VERSION }}
           release_name: Release ${{ env.VERSION }}
 
-      - name: Upload Release Bin Linux
+      - name: Init Upload
+        run: |
+          ZIP=$(basename $(ls _zip/*linux*))&&echo "ZIP_LINUX=$ZIP" >> $GITHUB_ENV
+          ZIP=$(basename $(ls _zip/*macos*))&&echo "ZIP_MACOS=$ZIP" >> $GITHUB_ENV
+          ZIP=$(basename $(ls _zip/*windows*))&&echo "ZIP_WINDOWS=$ZIP" >> $GITHUB_ENV
+
+      - name: Upload Linux
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./_zip/*.zip
-          # asset_name: test-bin-linux.zip
+          asset_path: ./_zip/${{ env.ZIP_LINUX }}
+          asset_name: ${{ env.ZIP_LINUX }}
+          asset_content_type: application/zip
+
+      - name: Upload MacOS
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_zip/${{ env.ZIP_MACOS }}
+          asset_name: ${{ env.ZIP_MACOS }}
+          asset_content_type: application/zip
+
+      - name: Upload Windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_zip/${{ env.ZIP_WINDOWS }}
+          asset_name: ${{ env.ZIP_WINDOWS }}
           asset_content_type: application/zip
