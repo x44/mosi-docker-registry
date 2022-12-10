@@ -1,5 +1,11 @@
+
+[![CI](https://github.com/x44/mosi-docker-repo/actions/workflows/ci.yml/badge.svg)](https://github.com/x44/mosi-docker-repo/actions/workflows/ci.yml)
+[![Release](https://github.com/x44/mosi-docker-repo/actions/workflows/release.yml/badge.svg)](https://github.com/x44/mosi-docker-repo/actions/workflows/release.yml)
+
 # Mosi Docker Repository Server
 That horrible sounding name stands for 'Most Simple', however...
+
+[Download the latest release](https://github.com/x44/mosi-docker-repo/releases/latest)
 
 ## Configuration
 The Mosi config file is in the `conf` sub directory.<br>
