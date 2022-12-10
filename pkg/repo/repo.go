@@ -5,7 +5,7 @@ import (
 	"io"
 	"mosi-docker-repo/pkg/config"
 	"mosi-docker-repo/pkg/filesys"
-	"mosi-docker-repo/pkg/log"
+	"mosi-docker-repo/pkg/logging"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -190,7 +190,7 @@ func DownloadBlob(img, digest string, w http.ResponseWriter) {
 
 	isGzip, err := filesys.IsGzip(servedFn)
 	if err != nil {
-		log.Error(LOG, "failed to get blob filetype "+servedFn+" err: "+err.Error())
+		logging.Error(LOG, "failed to get blob filetype %s err: %s", servedFn, err.Error())
 		w.WriteHeader(500)
 		return
 	}
@@ -205,20 +205,20 @@ func DownloadBlob(img, digest string, w http.ResponseWriter) {
 
 	err = download(servedFn, contentType, w)
 	if err != nil {
-		log.Error(LOG, "failed to download blob "+servedFn+" err: "+err.Error())
+		logging.Error(LOG, "failed to download blob %s err: %s", servedFn, err.Error())
 	}
 }
 
 func DownloadManifest(img, digest string, w http.ResponseWriter) {
 	servedFn, err := findManifestServedFilename(img, digest)
 	if err != nil {
-		log.Error(LOG, "failed to find manifest "+err.Error())
+		logging.Error(LOG, "failed to find manifest %s", err.Error())
 		w.WriteHeader(500)
 		return
 	}
 	err = download(servedFn, "application/vnd.docker.distribution.manifest.v2+json", w)
 	if err != nil {
-		log.Error(LOG, "failed to download manifest "+servedFn+" err: "+err.Error())
+		logging.Error(LOG, "failed to download manifest %s err: %s", servedFn, err.Error())
 	}
 }
 
@@ -241,10 +241,10 @@ func download(fn, contentType string, w http.ResponseWriter) error {
 }
 
 func Cleanup() {
-	log.Info(LOG, "cleanup")
+	logging.Debug(LOG, "cleanup")
 	imgs, err := getImages()
 	if err != nil {
-		log.Error(LOG, "failed to get images")
+		logging.Error(LOG, "cleanup failed to get images")
 		return
 	}
 	for _, img := range imgs {
@@ -253,35 +253,35 @@ func Cleanup() {
 }
 
 func CleanupImage(img string) {
-	log.Info(LOG, "cleanup image "+img)
+	logging.Debug(LOG, "cleanup image %s", img)
 
 	tags, err := getImageTags(img)
 	if err != nil {
-		log.Error(LOG, "failed to get image tags")
+		logging.Error(LOG, "cleanup failed to get image tags")
 		return
 	}
 
 	var digests = map[string]bool{}
 
 	for _, tag := range tags {
-		// log.Info(LOG, "cleanup image "+img+":"+tag)
+		logging.Debug(LOG, "cleanup image %s:%s", img, tag)
 		manifests, err := getImageManifestFiles(img, tag)
 		if err != nil {
-			log.Error(LOG, "failed to get image manifests")
+			logging.Error(LOG, "cleanup failed to get image manifests")
 			continue
 		}
 		for _, manifest := range manifests {
-			// log.Info(LOG, "cleanup image "+img+":"+tag+" manifest "+manifest)
+			logging.Debug(LOG, "cleanup image %s:%s manifest %s", img, tag, manifest)
 			manifestJson, err := filesys.ReadJson(manifest)
 			if err != nil {
-				log.Error(LOG, "failed to read image manifest json "+manifest)
+				logging.Error(LOG, "cleanup failed to read image manifest json %s", manifest)
 				continue
 			}
 			if config, ok := manifestJson["config"].(map[string]interface{}); ok {
 				digest := config["digest"].(string)
 				digests[digest] = true
 			} else {
-				log.Error(LOG, "failed to get image config from manifest json "+manifest)
+				logging.Error(LOG, "cleanup failed to get image config from manifest json %s", manifest)
 				continue
 			}
 			if layers, ok := manifestJson["layers"].([]interface{}); ok {
@@ -291,7 +291,7 @@ func CleanupImage(img string) {
 					digests[digest] = true
 				}
 			} else {
-				log.Error(LOG, "failed to get image layers from manifest json "+manifest)
+				logging.Error(LOG, "cleanup failed to get image layers from manifest json %s", manifest)
 				continue
 			}
 		}
@@ -299,17 +299,17 @@ func CleanupImage(img string) {
 
 	blobs, err := getImageBlobFiles(img)
 	if err != nil {
-		log.Error(LOG, "failed to get image blobs")
+		logging.Error(LOG, "cleanup failed to get image blobs %s", img)
 		return
 	}
 
 	for _, blob := range blobs {
 		fileDigest := fn2digest(filepath.Base(blob))
 		if _, ok := digests[fileDigest]; !ok {
-			log.Info(LOG, "deleting orphaned blob "+blob)
+			logging.Debug(LOG, "deleting orphaned blob %s", blob)
 			err = filesys.DeleteFile(blob)
 			if err != nil {
-				log.Error(LOG, "failed to delete orphaned blob "+blob)
+				logging.Warn(LOG, "failed to delete orphaned blob %s", blob)
 			}
 		}
 	}

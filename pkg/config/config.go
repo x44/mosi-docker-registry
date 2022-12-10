@@ -3,9 +3,10 @@ package config
 import (
 	"encoding/json"
 	"io"
-	"mosi-docker-repo/pkg/log"
+	"mosi-docker-repo/pkg/logging"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -13,16 +14,34 @@ import (
 const LOG = "Config"
 
 type config struct {
-	RepoDir            string    `json:"repoDir"`
-	ServerHost         string    `json:"serverHost"`
-	ServerPort         int       `json:"serverPort"`
-	TlsCrtFile         string    `json:"tlsCrtFile"`
-	TlsKeyFile         string    `json:"tlsKeyFile"`
-	ProxyHost          string    `json:"proxyHost"`
-	ProxyPort          int       `json:"proxyPort"`
-	ProxyProtocol      string    `json:"proxyProtocol"`
-	Accounts           []account `json:"accounts"`
-	AllowAnonymousPull bool      `json:"allowAnonymousPull"`
+	Repo     repo      `json:"repo"`
+	Server   server    `json:"server"`
+	Proxy    proxy     `json:"proxy"`
+	Log      log       `json:"log"`
+	Accounts []account `json:"accounts"`
+}
+
+type repo struct {
+	Dir                string `json:"dir"`
+	AllowAnonymousPull bool   `json:"allowAnonymousPull"`
+}
+
+type server struct {
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	TlsCrtFile string `json:"tlsCrtFile"`
+	TlsKeyFile string `json:"tlsKeyFile"`
+}
+
+type proxy struct {
+	Host string `json:"host"`
+	Port int    `json:"port"`
+}
+
+type log struct {
+	ServiceLevel string `json:"serviceLevel"`
+	ConsoleLevel string `json:"consoleLevel"`
+	LogFileLevel string `json:"logFileLevel"`
 }
 
 type account struct {
@@ -37,18 +56,30 @@ type image struct {
 	Push bool   `json:"push"`
 }
 
+var cwd string
 var cfg config
 
+func makeAbs(fn string) string {
+	if filepath.IsAbs(fn) {
+		return fn
+	}
+	return filepath.Join(cwd, fn)
+}
+
 func RepoDir() string {
-	return cfg.RepoDir
+	return makeAbs(cfg.Repo.Dir)
+}
+
+func AllowAnonymousPull() bool {
+	return cfg.Repo.AllowAnonymousPull
 }
 
 func ServerHost() string {
-	return cfg.ServerHost
+	return cfg.Server.Host
 }
 
 func ServerPort() int {
-	return cfg.ServerPort
+	return cfg.Server.Port
 }
 
 func ServerAddress() string {
@@ -56,51 +87,57 @@ func ServerAddress() string {
 }
 
 func TlsCrtFile() string {
-	return cfg.TlsCrtFile
+	if cfg.Server.TlsCrtFile == "" {
+		return cfg.Server.TlsCrtFile
+	}
+	return makeAbs(cfg.Server.TlsCrtFile)
 }
 
 func TlsKeyFile() string {
-	return cfg.TlsKeyFile
+	if cfg.Server.TlsCrtFile == "" {
+		return cfg.Server.TlsKeyFile
+	}
+	return makeAbs(cfg.Server.TlsKeyFile)
 }
 
 func TlsEnabled() bool {
 	return TlsCrtFile() != "" && TlsKeyFile() != ""
 }
 
-// Returns the server's address, taking into account an upstream reverse proxy.
+// Returns the server's address as it can be called by clients.
+// Takes into account an upstream reverse proxy.
 func ServerUrl(r *http.Request) string {
 
 	host := strings.Split(r.Host, ":")[0]
 	port := ServerPort()
 
+	// Note that it actually makes to sense to use http here,
+	// since all requests to either Mosi or to the reverse proxy MUST be https.
+	// However, for testing purposes, we also use http.
 	isTls := TlsEnabled()
 	protocol := "http"
 	if isTls {
 		protocol = "https"
 	}
 
-	// override with request proxy header fields
+	// overwrite with request proxy header fields
 	reqPort := r.Header.Get("X-Forwarded-Port")
-	reqProtocol := r.Header.Get("X-Forwarded-Proto")
 	if reqPort != "" {
 		p, err := strconv.Atoi(reqPort)
 		if err == nil {
 			port = p
 		}
-	}
-	if reqProtocol != "" {
-		protocol = reqProtocol
+		protocol = "https"
 	}
 
-	// override with config proxy settings
-	if cfg.ProxyHost != "" {
-		host = cfg.ProxyHost
+	// overwrite with config proxy settings
+	if cfg.Proxy.Host != "" {
+		host = cfg.Proxy.Host
+		protocol = "https"
 	}
-	if cfg.ProxyPort > 0 {
-		port = cfg.ProxyPort
-	}
-	if cfg.ProxyProtocol != "" {
-		protocol = cfg.ProxyProtocol
+	if cfg.Proxy.Port > 0 {
+		port = cfg.Proxy.Port
+		protocol = "https"
 	}
 
 	var portStr = ":" + strconv.Itoa(port)
@@ -119,8 +156,16 @@ func ServerTokenPath() string {
 	return ServerPath() + "/token"
 }
 
-func AllowAnonymousPull() bool {
-	return cfg.AllowAnonymousPull
+func LogLevelService() int {
+	return logging.Level(cfg.Log.ServiceLevel)
+}
+
+func LogLevelConsole() int {
+	return logging.Level(cfg.Log.ConsoleLevel)
+}
+
+func LogLevelFile() int {
+	return logging.Level(cfg.Log.LogFileLevel)
 }
 
 func GetAccountImageAccessRights(usr, pwd string, allowAnonymous bool) (imagesAllowedToPull []string, imagesAllowedToPush []string) {
@@ -196,15 +241,28 @@ func mapAndCheckAnonymousAccess(usr string, allowAnonymous bool) (string, bool) 
 }
 
 func initDefaults() {
-	cfg.RepoDir = "repo"
-	cfg.ServerHost = "nexton"
-	cfg.ServerPort = 4444
-	cfg.TlsCrtFile = "certs/nexton.crt"
-	cfg.TlsKeyFile = "certs/nexton.key"
-	cfg.ProxyHost = ""
-	cfg.ProxyPort = 0
-	cfg.ProxyProtocol = ""
-	cfg.AllowAnonymousPull = true
+	cfg.Repo = repo{
+		Dir:                "repo",
+		AllowAnonymousPull: true,
+	}
+
+	cfg.Server = server{
+		Host:       "mosi",
+		Port:       4444,
+		TlsCrtFile: "certs/mosi-example.crt",
+		TlsKeyFile: "certs/mosi-example.key",
+	}
+
+	cfg.Proxy = proxy{
+		Host: "",
+		Port: 0,
+	}
+
+	cfg.Log = log{
+		ServiceLevel: "INFO",
+		ConsoleLevel: "INFO",
+		LogFileLevel: "INFO",
+	}
 
 	cfg.Accounts = []account{
 		{
@@ -232,44 +290,55 @@ func initDefaults() {
 	}
 }
 
-func writeConfig() {
-	f, err := os.Create("config.json")
+func writeConfig(fn string) {
+	dir := filepath.Dir(fn)
+	err := os.MkdirAll(dir, 0700)
 	if err != nil {
-		log.Fatal(LOG, "failed to create config.json")
+		logging.Error(LOG, "failed to create %s", dir)
+		return
+	}
+	f, err := os.Create(fn)
+	if err != nil {
+		logging.Error(LOG, "failed to create %s", fn)
 		return
 	}
 	defer f.Close()
 
 	buf, err := json.MarshalIndent(cfg, "", "\t")
 	if err != nil {
-		log.Fatal(LOG, "failed to marshal config")
+		logging.Error(LOG, "failed to marshal %s", fn)
 		return
 	}
 
 	_, err = f.Write(buf)
 	if err != nil {
-		log.Fatal(LOG, "failed to write config.json")
+		logging.Error(LOG, "failed to write %s", fn)
 		return
 	}
 }
 
-func ReadConfig() {
+func ReadConfig(workdir, fn string) {
+	cwd = workdir
 	initDefaults()
-	f, err := os.Open("config.json")
+	f, err := os.Open(fn)
 	if err != nil {
-		log.Info(LOG, "config.json not found, creating default")
-		return
-	}
-	buf, err := io.ReadAll(f)
-	f.Close()
-	if err != nil {
-		log.Info(LOG, "failed to read config.json")
+		if os.IsNotExist(err) {
+			logging.Info(LOG, "file not found, creating default %s", fn)
+		} else {
+			logging.Fatal(LOG, "%s %v", fn, err)
+		}
+	} else {
+		buf, err := io.ReadAll(f)
+		f.Close()
+		if err != nil {
+			logging.Error(LOG, "failed to read, creating default %s", fn)
+		}
+
+		err = json.Unmarshal(buf, &cfg)
+		if err != nil {
+			logging.Error(LOG, "failed to unmarshal %s", fn)
+		}
 	}
 
-	err = json.Unmarshal(buf, &cfg)
-	if err != nil {
-		log.Info(LOG, "failed to unmarshal config")
-	}
-
-	writeConfig()
+	writeConfig(fn)
 }

@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/base64"
 	"mosi-docker-repo/pkg/config"
-	"mosi-docker-repo/pkg/log"
+	"mosi-docker-repo/pkg/logging"
 	"net/http"
 	"strings"
 	"time"
@@ -135,7 +135,7 @@ func getUsrAndPwd(auth string) (string, string) {
 	}
 	dec, err := base64.StdEncoding.DecodeString(auth[6:])
 	if err != nil {
-		log.Error(LOG, err.Error())
+		logging.Error(LOG, "base64 decoding error: %s", err.Error())
 		return "", ""
 	}
 	usrpwd := string(dec)

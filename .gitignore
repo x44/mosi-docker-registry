@@ -1,1 +1,8 @@
+/_*
 /repo
+/certs
+/config*
+/scripts/*.crt
+/scripts/*.key
+/ziptmpdir
+logs

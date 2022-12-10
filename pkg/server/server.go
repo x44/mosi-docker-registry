@@ -3,8 +3,9 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"mosi-docker-repo/pkg/config"
-	"mosi-docker-repo/pkg/log"
+	"mosi-docker-repo/pkg/logging"
 	"mosi-docker-repo/pkg/repo"
 	"net/http"
 	"strconv"
@@ -13,21 +14,41 @@ import (
 
 const LOG = "SERVER"
 
-func Start() {
+type serverErrorWriter struct {
+}
+
+func (w serverErrorWriter) Write(buf []byte) (int, error) {
+	n := len(buf)
+	logging.Error(LOG, string(buf[:n-1]))
+	return n, nil
+}
+
+func Start(version string) {
 	addr := config.ServerAddress()
-	log.Info(LOG, "starting "+addr)
+	protocol := "http"
+	if config.TlsEnabled() {
+		protocol = "https"
+	}
+	logging.Info(LOG, "Mosi %s address %s://%s, repository %s", version, protocol, addr, config.RepoDir())
 
 	http.HandleFunc(config.ServerPath()+"/", route)       // trailing / is required
 	http.HandleFunc(config.ServerTokenPath(), routeToken) // trailing / not allowed, otherwise all /v2/token?xxx requests get redirected
 
+	serverErrorWriter := &serverErrorWriter{}
+	serverErrorLogger := log.New(serverErrorWriter, "", 0)
+
+	srv := &http.Server{
+		Addr:     addr,
+		ErrorLog: serverErrorLogger,
+	}
 	var err error
 	if config.TlsEnabled() {
-		err = http.ListenAndServeTLS(addr, config.TlsCrtFile(), config.TlsKeyFile(), nil)
+		err = srv.ListenAndServeTLS(config.TlsCrtFile(), config.TlsKeyFile())
 	} else {
-		err = http.ListenAndServe(addr, nil)
+		err = srv.ListenAndServe()
 	}
 	if err != nil {
-		log.Fatal(LOG, err.Error())
+		logging.Fatal(LOG, "%s", err.Error())
 	}
 }
 
@@ -249,7 +270,7 @@ func handlePatch(w http.ResponseWriter, r *http.Request) {
 	len, err := repo.UploadBlob(img, uploadUuid, r.Body)
 
 	if err != nil {
-		log.Error(LOG, "upload blob failed: "+err.Error())
+		logging.Error(LOG, "upload blob failed: %s", err.Error())
 		w.WriteHeader(500)
 		return
 	}
@@ -295,7 +316,7 @@ func handlePutBlob(w http.ResponseWriter, r *http.Request) {
 
 	len, uri, digest, err := repo.PutBlob(img, uploadUuid, digest, r)
 	if err != nil {
-		log.Error(LOG, "put blob failed: "+err.Error())
+		logging.Error(LOG, "put blob failed: %s", err.Error())
 		w.WriteHeader(500)
 		return
 	}
@@ -317,7 +338,7 @@ func handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	digest, modified, content, err := repo.UploadManifest(img, tag, r.Body)
 
 	if err != nil {
-		log.Error(LOG, "upload manifest failed: "+err.Error())
+		logging.Error(LOG, "upload manifest failed: %s", err.Error())
 		w.WriteHeader(500)
 		return
 	}
@@ -331,7 +352,7 @@ func handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(content)
 	if err != nil {
-		log.Error(LOG, "failed to write content: "+err.Error())
+		logging.Error(LOG, "failed to write content: %s", err.Error())
 	}
 }
 
