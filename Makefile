@@ -1,6 +1,6 @@
 VERSION=$(shell (head -1 VERSION))
 
-ZIP_NAME				:= mosi-docker-repo
+ZIP_NAME				:= mosi-docker-registry
 
 BIN_DIR					:= _bin
 BIN_TOOLS_DIR			:= $(BIN_DIR)/tools

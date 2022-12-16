@@ -1,15 +1,60 @@
+[![CI](https://github.com/x44/mosi-docker-registry/actions/workflows/ci.yml/badge.svg)](https://github.com/x44/mosi-docker-registry/actions/workflows/ci.yml)
+[![Release](https://github.com/x44/mosi-docker-registry/actions/workflows/release.yml/badge.svg)](https://github.com/x44/mosi-docker-registry/actions/workflows/release.yml)
 
-[![CI](https://github.com/x44/mosi-docker-repo/actions/workflows/ci.yml/badge.svg)](https://github.com/x44/mosi-docker-repo/actions/workflows/ci.yml)
-[![Release](https://github.com/x44/mosi-docker-repo/actions/workflows/release.yml/badge.svg)](https://github.com/x44/mosi-docker-repo/actions/workflows/release.yml)
+# Mosi Docker Registry
+The horrible sounding **Mosi** stands for **Most Simple**<br>
 
-# Mosi Docker Repository Server
-That horrible sounding name stands for 'Most Simple', however...
+Mosi is a very basic Docker Registry with a very small memory footprint, has a simple user account management and can - but does not need to - be installed as a system service.<br>
+The system service functionality is powered by https://github.com/kardianos/service
 
-[Download the latest release](https://github.com/x44/mosi-docker-repo/releases/latest)
+**Please note that Mosi comes without any warranty!**
+
+## Install
+- [Download the latest release](https://github.com/x44/mosi-docker-registry/releases/latest)
+- Extract the downloaded zip file to a directory of your choice
+- Configure Mosi as described below
+
+## Run
+To run Mosi as a "normal" program, start it with
+```
+mosi
+```
+For help on the available commands run
+```
+mosi -h
+```
+To install / uninstall Mosi as a system service run
+```
+mosi install
+```
+```
+mosi uninstall
+```
+To start / restart / stop the Mosi system service run
+```
+mosi start
+```
+```
+mosi restart
+```
+```
+mosi stop
+```
+To get the status of the Mosi system service run
+```
+mosi status
+```
+You can also combine service commands, for example
+```
+mosi install start status
+```
 
 ## Configuration
-The Mosi config file is in the `conf` sub directory.<br>
-A default config file gets created when Mosi runs for the first time.
+If you installed Mosi for the first time, let it create it's default config file by running
+```
+mosi
+```
+The Mosi config file is located in the `conf` sub directory.
 
 ## TLS / Non-TLS Mode Configuration
 Mosi can run in either
@@ -40,9 +85,11 @@ To run Mosi in Non-TLS mode...
 
 If both, the reverse proxy's forwarded values and the configured values are present, the later take precendence.
 
+Please note that the Mosi CLI requires the proxy to be configured in the `proxy` section.
+
 ## Reverse Proxy Configuration for Non-TLS Mode
 Example nginx config. The nginx reverse proxy is at mosiproxy:443 and forwards to Mosi at 192.168.1.2:4444
-```
+```nginx
 server {
 	listen       443 ssl;
 	server_name  mosiproxy;
@@ -65,7 +112,7 @@ server {
 
 ## Mosi Configuration for Non-TLS Mode
 Example Mosi config. The reverse proxy is at mosiproxy:443 and forwards to Mosi at mosi:4444
-```
+```json
 "server": {
 	"host": "mosi",
 	"port": 4444,
@@ -88,13 +135,13 @@ You can either
 Replace DNS:mosi with the server name you configured in `server.name`<br>
 Replace IP:127.0.0.1,IP:192.168.1.2 with your server's IP address(es)
 
-```
+```ini
 [req]
 distinguished_name = req_distinguished_name
 x509_extensions = v3_req
 prompt = no
 [req_distinguished_name]
-O = Mosi Docker Repository
+O = Mosi Docker Registry
 [v3_req]
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer
@@ -109,20 +156,20 @@ subjectAltName = DNS:mosi,IP:127.0.0.1,IP:192.168.1.2
 openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout mosi.key -out mosi.crt -config mosi.cfg -extensions 'v3_req'
 ```
 
-# Running a Private Docker Repository with a Self-Signed Certificate
+# Running a Private Docker Registry with a Self-Signed Certificate
 Even though it is not specific to Mosi, here is how to make K8s/Docker/Minikube accept a self-signed certificate.
 
 ## Kubernetes
 On all K8s master and worker nodes...
 
-1) Add the repository IP and Hostname to /etc/hosts
+1) Add the registry IP and Hostname to /etc/hosts
 ```
 sudo tee -a /etc/hosts <<EOF
 192.168.1.2 mosi
 EOF
 ```
 
-2) Get the self-signed certificate from the repository server
+2) Get the self-signed certificate from the registry server
 ```
 openssl s_client -showcerts -connect mosi:4444 < /dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > ca.crt
 ```
@@ -133,22 +180,45 @@ sudo mv ca.crt /etc/ssl/certs
 sudo update-ca-certificates
 ```
 
-## Docker
-Please note, that this only applies to `Docker Toolbox` on Windows 7.
+## Docker Desktop (Windows)
+You can either add the self-signed certificate 
+- To the Windows Certificate Manager:
+  - Right-click the mosi.crt file and choose **Install Certificate**
+  - Choose **Current User** or **Local Machine**
+  - Choose **Place all certificates in the following store** and click **Browse...**
+  - Choose **Trusted Root Certificate Authorities**
+  - Click **Next** / **Finish**
+  - **Restart Docker Desktop**
+<br><br>
+- Or to a directory in your home directory:
+	- Create the directory %USERPROFILE%\.docker\certs.d\
+	- In this directory create a directory for the Mosi hostname and port. The name of this directory must be in the format `host` or `host port` (with a **SPACE** between host and port) and it must match the server name and port which you are going to use. For example, `docker login mosi` requires the directory name to be just `mosi`. `docker login mosi:443` requires the directory name to be `mosi 443`
+	- Copy the mosi.crt file into this directory. Note that you do **not** have to rename this file to ca.crt
+    - Example for mosi:4444  
+		```
+		%USERPROFILE%\.docker\certs.d\mosi 4444\mosi.crt
+		```
+    - Example for mosi
+		```
+		%USERPROFILE%\.docker\certs.d\mosi\mosi.crt
+		```
+	- **Restart Docker Desktop**
 
+
+## Docker Toolbox (Windows)
 You can either
 - Use `tools/configure-docker-toolbox` from the Mosi binary distribution
 - Use `scripts/configure-docker-toolbox.sh` from the Mosi binary distribution
 - Or follow the steps below:
 
-Please note, that we `must` use the directory C:\Users\YOURNAME since this directory gets mounted as a shared folder in the Docker VM.
+Please note that we **must** use the directory %USERPROFILE% since this directory gets mounted as a shared folder in the Docker VM.
 
-1) Copy the self-signed certificate to C:\Users\YOURNAME\
+1) Copy the self-signed certificate to the %USERPROFILE% directory
 ```
-copy mosi.crt C:\Users\YOURNAME\
+copy mosi.crt %USERPROFILE%
 ```
 
-2) Create C:\Users\YOURNAME\bootlocal.sh with LF line endings:
+2) Create %USERPROFILE%\bootlocal.sh with LF line endings:
 ```
 #!/bin/bash
 sleep 5
@@ -178,7 +248,7 @@ exit
 docker-machine restart
 ```
 
-6) Add the repository ID and host name to C:\Windows\System32\drivers\etc\hosts
+6) Add the registry IP and host name to C:\Windows\System32\drivers\etc\hosts
 ```
 192.168.1.2 mosi
 ```
@@ -187,7 +257,7 @@ docker-machine restart
 
 1) Copy the self-signed certificate
 ```
-copy /Y mosi.crt C:\Users\YOURNAME\.minikube\certs\
+copy /Y mosi.crt %USERPROFILE%\.minikube\certs\
 ```
 
 2) Start Minikube

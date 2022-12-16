@@ -2,8 +2,11 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
-	"mosi-docker-repo/pkg/logging"
+	"io/fs"
+	"mosi-docker-registry/pkg/logging"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -47,6 +50,7 @@ type log struct {
 type account struct {
 	Usr    string  `json:"usr"`
 	Pwd    string  `json:"pwd"`
+	Admin  bool    `json:"admin"`
 	Images []image `json:"images"`
 }
 
@@ -104,21 +108,13 @@ func TlsEnabled() bool {
 	return TlsCrtFile() != "" && TlsKeyFile() != ""
 }
 
-// Returns the server's address as it can be called by clients.
-// Takes into account an upstream reverse proxy.
+// Returns the server's "external" address which is either
+// the server's host and port if Mosi is running in TLS mode without a reverse proxy or
+// the reverse proxy's host and port if Mosi is running in Non-TLS mode behind a reverse proxy
 func ServerUrl(r *http.Request) string {
 
 	host := strings.Split(r.Host, ":")[0]
 	port := ServerPort()
-
-	// Note that it actually makes to sense to use http here,
-	// since all requests to either Mosi or to the reverse proxy MUST be https.
-	// However, for testing purposes, we also use http.
-	isTls := TlsEnabled()
-	protocol := "http"
-	if isTls {
-		protocol = "https"
-	}
 
 	// overwrite with request proxy header fields
 	reqPort := r.Header.Get("X-Forwarded-Port")
@@ -127,25 +123,37 @@ func ServerUrl(r *http.Request) string {
 		if err == nil {
 			port = p
 		}
-		protocol = "https"
 	}
 
 	// overwrite with config proxy settings
 	if cfg.Proxy.Host != "" {
 		host = cfg.Proxy.Host
-		protocol = "https"
 	}
 	if cfg.Proxy.Port > 0 {
 		port = cfg.Proxy.Port
-		protocol = "https"
 	}
 
-	var portStr = ":" + strconv.Itoa(port)
-	if (port == 80 && !isTls) || (port == 443 && isTls) {
-		portStr = ""
-	}
+	return fmt.Sprintf("https://%s:%d", host, port)
+}
 
-	return protocol + "://" + host + portStr
+// Returns either
+// the server's host if Mosi is running in TLS mode without a reverse proxy or
+// the reverse proxy's host if Mosi is running in Non-TLS mode behind a reverse proxy
+func ServerOrProxyHost() string {
+	if cfg.Proxy.Host != "" {
+		return cfg.Proxy.Host
+	}
+	return cfg.Server.Host
+}
+
+// Returns either
+// the server's port if Mosi is running in TLS mode without a reverse proxy or
+// the reverse proxy's port if Mosi is running in Non-TLS mode behind a reverse proxy
+func ServerOrProxyPort() int {
+	if cfg.Proxy.Port > 0 {
+		return cfg.Proxy.Port
+	}
+	return cfg.Server.Port
 }
 
 func ServerPath() string {
@@ -172,26 +180,17 @@ func GetAccountImageAccessRights(usr, pwd string, allowAnonymous bool) (imagesAl
 	imagesAllowedToPull = nil
 	imagesAllowedToPush = nil
 
-	usr, allowed := mapAndCheckAnonymousAccess(usr, allowAnonymous)
-	if !allowed {
+	account := getAccount(usr, pwd, allowAnonymous)
+	if account == nil {
 		return
 	}
 
-	// TODO de-uglify this
-	for _, account := range cfg.Accounts {
-		if account.Usr == usr {
-			if account.Pwd == pwd {
-				for _, image := range account.Images {
-					if image.Pull {
-						imagesAllowedToPull = append(imagesAllowedToPull, image.Name)
-					}
-					if image.Push {
-						imagesAllowedToPush = append(imagesAllowedToPush, image.Name)
-					}
-				}
-				return
-			}
-			return
+	for _, image := range account.Images {
+		if image.Pull || account.Admin {
+			imagesAllowedToPull = append(imagesAllowedToPull, image.Name)
+		}
+		if image.Push || account.Admin {
+			imagesAllowedToPush = append(imagesAllowedToPush, image.Name)
 		}
 	}
 	return
@@ -201,32 +200,49 @@ func GetScopeImageAccessRights(imageName, usr, pwd string, allowAnonymous bool) 
 	imagesAllowedToPull = nil
 	imagesAllowedToPush = nil
 
+	account := getAccount(usr, pwd, allowAnonymous)
+	if account == nil {
+		return
+	}
+
+	for _, image := range account.Images {
+		if image.Name == imageName || image.Name == "*" {
+			if image.Pull || account.Admin {
+				imagesAllowedToPull = append(imagesAllowedToPull, imageName)
+			}
+			if image.Push || account.Admin {
+				imagesAllowedToPush = append(imagesAllowedToPush, imageName)
+			}
+			return
+		}
+	}
+	return
+}
+
+func HasAdminAccessRights(usr, pwd string) bool {
+	account := getAccount(usr, pwd, false)
+	if account == nil {
+		return false
+	}
+	return account.Admin
+}
+
+func getAccount(usr, pwd string, allowAnonymous bool) *account {
 	usr, allowed := mapAndCheckAnonymousAccess(usr, allowAnonymous)
 	if !allowed {
-		return
+		return nil
 	}
 
 	// TODO de-uglify this
 	for _, account := range cfg.Accounts {
 		if account.Usr == usr {
 			if account.Pwd == pwd {
-				for _, image := range account.Images {
-					if image.Name == imageName || image.Name == "*" {
-						if image.Pull {
-							imagesAllowedToPull = append(imagesAllowedToPull, imageName)
-						}
-						if image.Push {
-							imagesAllowedToPush = append(imagesAllowedToPush, imageName)
-						}
-						return
-					}
-				}
-				return
+				return &account
 			}
-			return
+			return nil
 		}
 	}
-	return
+	return nil
 }
 
 func mapAndCheckAnonymousAccess(usr string, allowAnonymous bool) (string, bool) {
@@ -266,8 +282,9 @@ func initDefaults() {
 
 	cfg.Accounts = []account{
 		{
-			Usr: "admin",
-			Pwd: "admin",
+			Usr:   "admin",
+			Pwd:   "admin",
+			Admin: true,
 			Images: []image{
 				{
 					Name: "*",
@@ -277,8 +294,9 @@ func initDefaults() {
 			},
 		},
 		{
-			Usr: "anonymous",
-			Pwd: "",
+			Usr:   "anonymous",
+			Pwd:   "",
+			Admin: false,
 			Images: []image{
 				{
 					Name: "*",
@@ -294,36 +312,48 @@ func writeConfig(fn string) {
 	dir := filepath.Dir(fn)
 	err := os.MkdirAll(dir, 0700)
 	if err != nil {
-		logging.Error(LOG, "failed to create %s", dir)
+		logging.Error(LOG, "Failed to create %s", dir)
 		return
 	}
 	f, err := os.Create(fn)
 	if err != nil {
-		logging.Error(LOG, "failed to create %s", fn)
+		logging.Error(LOG, "Failed to create %s", fn)
 		return
 	}
 	defer f.Close()
 
 	buf, err := json.MarshalIndent(cfg, "", "\t")
 	if err != nil {
-		logging.Error(LOG, "failed to marshal %s", fn)
+		logging.Error(LOG, "Failed to marshal %s", fn)
 		return
 	}
 
 	_, err = f.Write(buf)
 	if err != nil {
-		logging.Error(LOG, "failed to write %s", fn)
+		logging.Error(LOG, "Failed to write %s", fn)
 		return
 	}
 }
 
-func ReadConfig(workdir, fn string) {
+func ReadIfExists(workdir, fn string) bool {
+	return read(workdir, fn, false)
+}
+
+func ReadOrCreate(workdir, fn string) bool {
+	return read(workdir, fn, true)
+}
+
+func read(workdir, fn string, doWrite bool) bool {
+	didExist := true
 	cwd = workdir
 	initDefaults()
 	f, err := os.Open(fn)
 	if err != nil {
-		if os.IsNotExist(err) {
-			logging.Info(LOG, "file not found, creating default %s", fn)
+		if errors.Is(err, fs.ErrNotExist) {
+			if doWrite {
+				logging.Info(LOG, "Creating default config: %s", fn)
+			}
+			didExist = false
 		} else {
 			logging.Fatal(LOG, "%s %v", fn, err)
 		}
@@ -331,14 +361,16 @@ func ReadConfig(workdir, fn string) {
 		buf, err := io.ReadAll(f)
 		f.Close()
 		if err != nil {
-			logging.Error(LOG, "failed to read, creating default %s", fn)
+			logging.Error(LOG, "Failed to read, creating default %s", fn)
 		}
 
 		err = json.Unmarshal(buf, &cfg)
 		if err != nil {
-			logging.Error(LOG, "failed to unmarshal %s", fn)
+			logging.Error(LOG, "Failed to unmarshal %s", fn)
 		}
 	}
-
-	writeConfig(fn)
+	if doWrite {
+		writeConfig(fn)
+	}
+	return didExist
 }

@@ -6,3 +6,4 @@
 /scripts/*.key
 /ziptmpdir
 logs
+__debug_bin*

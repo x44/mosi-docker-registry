@@ -65,7 +65,37 @@
 			]
 		},
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// The following run the dev mode executable 'program' and apply a program-command
+		// The following run the dev mode executable 'command' and display the program or command help
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		{
+			"name": "Launch Help",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "cmd/mosi/.",
+			"output": "_dev/command",
+			"cwd": "_dev",
+			"args": [
+				"-dev",
+				"-h"
+			]
+		},
+		{
+			"name": "Launch Help for Command",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "cmd/mosi/.",
+			"output": "_dev/command",
+			"cwd": "_dev",
+			"args": [
+				"-dev",
+				"-h",
+				"ls"
+			]
+		},
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// The following run the dev mode executable 'command' and apply a program-command
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		{
 			"name": "Launch Command 'version'",
@@ -73,7 +103,7 @@
 			"request": "launch",
 			"mode": "auto",
 			"program": "cmd/mosi/.",
-			"output": "_dev/program",
+			"output": "_dev/command",
 			"cwd": "_dev",
 			"args": [
 				"-dev",
@@ -81,16 +111,19 @@
 			]
 		},
 		{
-			"name": "Launch Command 'test hello'",
+			"name": "Launch Command 'ls'",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
 			"program": "cmd/mosi/.",
-			"output": "_dev/program",
+			"output": "_dev/command",
 			"cwd": "_dev",
+			"console": "integratedTerminal",
 			"args": [
 				"-dev",
-				"test", "hello"
+				"ls",
+				"vertx*",
+				"-s=mosi:4444", "-u=admin", "-p=admin"
 			]
 		},
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,6 +158,19 @@
 				"dir", "_dev/verts",
 				"hosts", "mosi",
 				"ips", "192.168.0.3",
+			]
+		},
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// Tests
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		{
+			"name": "Launch Tests",
+			"type": "go",
+			"request": "launch",
+			"mode": "test",
+			"program": "${workspaceFolder}/${relativeFileDirname}",
+			"cwd": ".",
+			"args": [
 			]
 		},
 	]

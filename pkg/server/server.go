@@ -1,12 +1,10 @@
 package server
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
-	"mosi-docker-repo/pkg/config"
-	"mosi-docker-repo/pkg/logging"
-	"mosi-docker-repo/pkg/repo"
+	"mosi-docker-registry/pkg/config"
+	"mosi-docker-registry/pkg/logging"
+	"mosi-docker-registry/pkg/repo"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,9 +15,14 @@ const LOG = "SERVER"
 type serverErrorWriter struct {
 }
 
-func (w serverErrorWriter) Write(buf []byte) (int, error) {
+func (w *serverErrorWriter) Write(buf []byte) (int, error) {
 	n := len(buf)
-	logging.Error(LOG, string(buf[:n-1]))
+	// Do NOT log the following errors:
+	// 1) http: TLS handshake error from 1.2.3.4:12345: remote error: tls: bad certificate
+	s := string(buf[:n-1])
+	if !strings.HasSuffix(s, "tls: bad certificate") {
+		logging.Error(LOG, s)
+	}
 	return n, nil
 }
 
@@ -53,7 +56,7 @@ func Start(version string) {
 }
 
 func route(w http.ResponseWriter, r *http.Request) {
-	PrintReq(r)
+	printRequest(r)
 	if !checkHost(w, r) {
 		return
 	}
@@ -74,7 +77,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 }
 
 func routeToken(w http.ResponseWriter, r *http.Request) {
-	PrintReq(r)
+	printRequest(r)
 	if !checkHost(w, r) {
 		return
 	}
@@ -87,7 +90,7 @@ func routeToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetToken(w http.ResponseWriter, r *http.Request) {
-	token := CreateAndStoreTokenFromBasicAuth(r)
+	token := createAndStoreTokenFromBasicAuth(r)
 	if token == "" {
 		w.WriteHeader(403)
 		return
@@ -106,7 +109,7 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 
 	// /v2/
 	if len(paths) == 1 {
-		if !checkRootAuth(w, r) {
+		if !initAuth(w, r) {
 			return
 		}
 		w.WriteHeader(200)
@@ -124,6 +127,13 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 		handleGetManifest(w, r)
 		return
 	}
+
+	// /v2/cli/...
+	if len(paths) > 1 && paths[1] == "cli" {
+		handleGetCli(w, r)
+		return
+	}
+
 	w.WriteHeader(404)
 }
 
@@ -354,90 +364,4 @@ func handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logging.Error(LOG, "failed to write content: %s", err.Error())
 	}
-}
-
-func checkHost(w http.ResponseWriter, r *http.Request) bool {
-	host := r.Host
-	if strings.Contains(host, ":") {
-		host = host[:strings.Index(host, ":")]
-	}
-
-	if host != config.ServerHost() {
-		w.WriteHeader(404)
-		return false
-	}
-	return true
-}
-
-func checkRootAuth(w http.ResponseWriter, r *http.Request) bool {
-	return checkAuth(w, r, "", false, false)
-}
-
-func checkPullAuth(w http.ResponseWriter, r *http.Request, img string) bool {
-	return checkAuth(w, r, img, true, false)
-}
-
-func checkPushAuth(w http.ResponseWriter, r *http.Request, img string) bool {
-	return checkAuth(w, r, img, true, true)
-}
-
-func checkAuth(w http.ResponseWriter, r *http.Request, img string, allowAnonymous, wantPush bool) bool {
-	if CheckAuth(r, img, allowAnonymous, wantPush) {
-		return true
-	}
-
-	setDefaultHeader(w)
-
-	tokenUrl := config.ServerUrl(r) + config.ServerTokenPath()
-	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Bearer realm="%s", service="%s"`, tokenUrl, tokenUrl))
-	if allowAnonymous {
-		w.Header().Add("WWW-Authenticate", fmt.Sprintf(`BASIC realm="%s"`, "Mosi Docker Repository"))
-	}
-
-	sendError(w, 401, "UNAUTHORIZED", "access to the requested resource is not authorized")
-	return false
-}
-
-func setDefaultHeader(w http.ResponseWriter) {
-	w.Header().Set("Server", "Mosi Docker Repository/0.1")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Security-Policy", "sandbox allow-forms allow-modals allow-popups allow-presentation allow-scripts allow-top-navigation")
-	w.Header().Set("X-XSS-Protection", "1; mode=block")
-	w.Header().Set("Docker-Distribution-Api-Tag", "registry/2.0")
-}
-
-func sendError(w http.ResponseWriter, status int, code, msg string) {
-	var errors []any
-	errors = append(errors, createError(code, msg))
-
-	rsp := map[string]any{
-		"errors": errors,
-	}
-	sendJson(w, status, &rsp)
-}
-
-func createError(code, msg string) any {
-	err := map[string]any{
-		"code":    code,
-		"message": msg,
-		"detail":  nil,
-	}
-	return err
-}
-
-func sendJson(w http.ResponseWriter, status int, rsp *map[string]any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(rsp)
-}
-
-func splitPath(r *http.Request) []string {
-	paths := strings.Split(r.URL.Path, "/")
-	var ret []string
-	for _, path := range paths {
-		if path != "" {
-			ret = append(ret, path)
-		}
-	}
-	return ret
 }

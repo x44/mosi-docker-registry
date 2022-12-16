@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Configures the Docker Toolbox VM for usage with the Mosi repository.
+# Configures the Docker Toolbox VM for usage with the Mosi Registry.
 # 1) Maps the Mosi host name(s) to IP address(es)
 # 2) Stores the Mosi TLS certificate(s)
 
@@ -27,11 +27,11 @@ ips=()
 hosts=()
 i=1
 while [ true ]; do
-	printf "\nRepository %d\n" $i
-	printf "Enter repository IP address or leave blank when done: "
+	printf "\nRegistry %d\n" $i
+	printf "Enter registry IP address or leave blank when done: "
 	read ip
 	if [ "$ip" == "" ]; then break; fi
-	printf "Enter repository host name or leave blank when done: "
+	printf "Enter registry host name or leave blank when done: "
 	read host
 	if [ "$host" == "" ]; then break; fi
 	ips+=("$ip")

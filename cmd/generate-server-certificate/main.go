@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"mosi-docker-repo/pkg/cmdline"
+	"mosi-docker-registry/pkg/terminal"
 	"net"
 	"os"
 	"path/filepath"
@@ -73,7 +73,7 @@ func generate(hosts, ips []string, crtFile, keyFile string) error {
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			Organization: []string{"Mosi Docker Repository"},
+			Organization: []string{"Mosi Docker Registry"},
 		},
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour * 24 * 36500),
@@ -107,10 +107,10 @@ func generate(hosts, ips []string, crtFile, keyFile string) error {
 }
 
 func inputArgs(certsDefaultDir string, a *args) {
-	cmdline.InputString("Certificate name", "mosi", &a.name)
-	cmdline.InputString("Output directory", certsDefaultDir, &a.dir)
-	cmdline.InputString("Server host names (comma or space-separated)", "mosi", &a.hosts)
-	cmdline.InputString("Server IP addresses (comma or space-separated)", "127.0.0.1", &a.ips)
+	terminal.InputString("Certificate name", "mosi", &a.name)
+	terminal.InputString("Output directory", certsDefaultDir, &a.dir)
+	terminal.InputString("Server host names (comma or space-separated)", "mosi", &a.hosts)
+	terminal.InputString("Server IP addresses (comma or space-separated)", "127.0.0.1", &a.ips)
 }
 
 func exists(fn string) bool {
@@ -141,8 +141,8 @@ func main() {
 
 	crtFile, _ := filepath.Abs(filepath.Join(*a.dir, *a.name+".crt"))
 	keyFile, _ := filepath.Abs(filepath.Join(*a.dir, *a.name+".key"))
-	hosts := cmdline.SplitByCommaOrSpaceAndTrim(*a.hosts)
-	ips := cmdline.SplitByCommaOrSpaceAndTrim(*a.ips)
+	hosts := terminal.SplitByCommaOrSpaceAndTrim(*a.hosts)
+	ips := terminal.SplitByCommaOrSpaceAndTrim(*a.ips)
 
 	fmt.Printf("Ready to generate the certificate\n")
 	fmt.Printf("--------------------------------------------------------------------------------\n")

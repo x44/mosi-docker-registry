@@ -2,37 +2,65 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/kardianos/service"
 	"golang.org/x/exp/slices"
 
-	"mosi-docker-repo/pkg/config"
-	"mosi-docker-repo/pkg/logging"
-	"mosi-docker-repo/pkg/server"
+	"mosi-docker-registry/pkg/app"
+	"mosi-docker-registry/pkg/client"
+	"mosi-docker-registry/pkg/config"
+	"mosi-docker-registry/pkg/logging"
+	"mosi-docker-registry/pkg/server"
 )
 
 var Version = "DEV"
 
 const (
-	serviceName        = "MosiDockerRepo"
-	serviceDisplayName = "Mosi Docker Repository"
-	serviceDescription = "Mosi docker repository."
+	serviceName        = "MosiDockerRegistry"
+	serviceDisplayName = "Mosi Docker Registry"
+	serviceDescription = "The Mosi Docker Registry"
 
 	cfgFileName = "config.json"
 	logFileName = "mosi.log"
 )
 
-var serviceCommands = [...]string{"start", "stop", "restart", "install", "uninstall", "status"}
-var programCommands = [...]string{"version", "test"}
 var helpCommands = [...]string{"-h", "--help", "help", "-?"}
+var serviceCommands = [...]string{"install", "uninstall", "start", "stop", "restart", "status"}
+var programCommands = []app.ProgramCommand{
+	{
+		Run:         printVersion,
+		Cmd:         "version",
+		Description: "Print the program version and exit.",
+		Args:        []app.ProgramCommandArg{},
+	},
+	{
+		Run:         client.List,
+		Cmd:         "ls",
+		Description: "List images, tags and layers.",
+		Args: []app.ProgramCommandArg{
+			{
+				Arg: "[name]:[tag]", Description: "List image(s) matching the name and/or tag.\nOmmit to list all images.\nWildcards are supported.\n",
+			},
+			{
+				Arg: "-s host:port", Description: "Run the command on the given machine. Optional.",
+			},
+			{
+				Arg: "-u username", Description: "Authenticate with the given username. Optional.",
+			},
+			{
+				Arg: "-p password", Description: "Authenticate with the given password. Optional.",
+			},
+		},
+	},
+	// {Run: test2, Cmd: "test2", Description: "This is test 2", Args: []app.ProgramCommandArg{{Arg: "sendletter", Description: "Send a letter"}, {Arg: "hello <name>", Description: "Say hello to <name>"}}},
+}
 
 type program struct {
 	Exe  string
 	Cwd  string
-	Cmd  string
+	Cmd  *app.ProgramCommand
 	Args []string
 }
 
@@ -42,34 +70,31 @@ var cfgFile = ""
 var logFile = ""
 var serviceLogger service.Logger
 
-func run(exe, cwd, cmd string, args []string) {
-
-	if cmd == "version" {
-		fmt.Printf("%s %s\n", serviceDisplayName, Version)
-		os.Exit(0)
-	}
-	if cmd == "test" {
-		os.Exit(0)
-	}
+func run(exe, cwd string, cmd *app.ProgramCommand, args []string) {
 
 	InitLogging(logging.INFO, logging.INFO, logging.INFO, true, true, true)
 
-	config.ReadConfig(cwd, cfgFile)
+	if cmd != nil {
+		// the CLI may be used from a remote machine without a local server & config on that remote machine, so just try to read the config, but do not create a config file
+		config.ReadIfExists(cwd, cfgFile)
+		cmd.Run(args)
+		os.Exit(0)
+	}
+
+	if !config.ReadOrCreate(cwd, cfgFile) {
+		// config file did not exist, the default config file got created, exit and let user do initial config
+		os.Exit(0)
+	}
 
 	// re-init logging with config log settings
 	InitLogging(config.LogLevelService(), config.LogLevelConsole(), config.LogLevelFile(), true, true, true)
 
-	logging.Info("PROG", "run()\nrunning as a service: %v\nexe: %s\ncfg: %s\nlog: %s\ncwd: %s\ncmd: %s\nargs: %v\n", !service.Interactive(), exe, cfgFile, logFile, cwd, cmd, args)
-	fmt.Printf("fmt ****** SIMULATED ERROR ********\n")
-	log.Printf("log ****** SIMULATED ERROR ********\n")
-	logging.Error("PROG", "****** SIMULATED ERROR ********")
-	os.Exit(1)
+	logging.Info("MAIN", "run()\nrunning as a service: %v\ncwd: %s\nexe: %s\ncfg: %s\nlog: %s\nrepo: %s\ncmd: %v\nargs: %v\n", !service.Interactive(), cwd, exe, cfgFile, logFile, config.RepoDir(), cmd, args)
 	server.Start(Version)
 }
 
 func (p *program) Start(s service.Service) error {
 	go run(p.Exe, p.Cwd, p.Cmd, p.Args)
-	// return errors.New("THIS IS A TEST ERROR")
 	return nil
 }
 
@@ -86,7 +111,7 @@ func isServiceCommand(cmd string) bool {
 }
 
 func isProgramCommand(cmd string) bool {
-	return slices.Contains(programCommands[:], cmd)
+	return app.GetProgCommand(&programCommands, cmd) != nil
 }
 
 func toString(a []string) string {
@@ -94,18 +119,21 @@ func toString(a []string) string {
 	return s[1 : len(s)-1]
 }
 
+func printVersion(args []string) {
+	fmt.Printf("%s %s\n", serviceDisplayName, Version)
+}
+
 func printHelp() {
 	exe := os.Args[0]
-	fmt.Printf("Usage: %s [service-command service-command ...] | [program-command]\n", filepath.Base(exe))
-	fmt.Printf("\nIf no command is given, the program will run in interactive mode.\n")
-	fmt.Printf("Multiple service commands can be passed as a space-separated list.\n")
-	fmt.Printf("\nSERVICE COMMANDS:\n\n")
+	fmt.Printf("Usage: %s <service-command> [service-command] ...\n", filepath.Base(exe))
+	fmt.Printf("Usage: %s <program-command> [arguments]\n", filepath.Base(exe))
+	fmt.Printf("\nMultiple service commands can be passed as a space-separated list.\n")
+	fmt.Printf("If no command is given, the server will start in interactive mode.\n")
+	fmt.Printf("\nService Commands:\n\n")
 	fmt.Printf("%s\n", toString(serviceCommands[:]))
-	fmt.Printf("\nPROGRAM COMMANDS:\n\n")
-	fmt.Printf("%s\n\n", toString(programCommands[:]))
-	fmt.Printf("%s        %s\n", "version", "Prints the version.")
-	fmt.Printf("%s        %s\n", "test", "Is a test command")
-	fmt.Printf("\nFor further help run %s <program-command> -h\n", filepath.Base(exe))
+	fmt.Printf("\nProgram Commands:\n\n")
+	app.PrintHelpForCommands(&programCommands)
+	fmt.Printf("\nFor further help run %s -h <program-command>\n", filepath.Base(exe))
 	os.Exit(0)
 }
 
@@ -114,18 +142,12 @@ func printHelpForCommand(cmd string) {
 		fmt.Printf("No help for service-command '%s'. Run with -h for help.\n", cmd)
 		os.Exit(1)
 	}
-	if !isProgramCommand(cmd) {
+	progCommand := app.GetProgCommand(&programCommands, cmd)
+	if progCommand == nil {
 		fmt.Printf("Unknown command '%s'. Run with -h for help.\n", cmd)
 		os.Exit(1)
 	}
-
-	exe := os.Args[0]
-	fmt.Printf("Usage: %s %s ", filepath.Base(exe), cmd)
-
-	switch cmd {
-	case "test":
-		fmt.Printf("\n\nNo further help available\n")
-	}
+	app.PrintHelpForCommand(progCommand)
 	os.Exit(0)
 }
 
@@ -181,28 +203,19 @@ func getCommand(args []string) (string, []string) {
 }
 
 func getWorkDirAndProgramExe(isDevMode bool) (string, string) {
+	var exe string
+	var err error
 	if isDevMode {
-		exe := findDevModeProgramExe()
-		cwd := filepath.Dir(exe)
-		return cwd, exe
+		exe = findDevModeProgramExe()
 	} else {
-		exe, err := os.Executable()
+		exe, err = os.Executable()
 		if err != nil {
 			fmt.Printf("Failed to get executable")
 			os.Exit(1)
 		}
-		cwd := ""
-		if service.Interactive() {
-			cwd, err = filepath.Abs("")
-			if err != nil {
-				fmt.Printf("Failed to get workdir")
-				os.Exit(1)
-			}
-		} else {
-			cwd = filepath.Dir(exe)
-		}
-		return cwd, exe
 	}
+	cwd := filepath.Dir(exe)
+	return cwd, exe
 }
 
 func findDevModeProgramExe() string {
@@ -235,19 +248,18 @@ func findDevModeProgramExe() string {
 }
 
 func main() {
+
 	args := os.Args[1:]
 
 	isDevMode, args := isDevModeArg(args)
-
 	isHelp, args := isHelpArg(args)
-	if isHelp {
-		printHelp()
-	}
 
 	cmd, args := getCommand(args)
-	if cmd != "" {
-		isHelp, args = isHelpArg(args)
-		if isHelp {
+
+	if isHelp {
+		if cmd == "" {
+			printHelp()
+		} else {
 			printHelpForCommand(cmd)
 		}
 	}
@@ -309,7 +321,7 @@ func main() {
 
 	prg.Exe = exe
 	prg.Cwd = cwd
-	prg.Cmd = cmd
+	prg.Cmd = app.GetProgCommand(&programCommands, cmd)
 	prg.Args = args
 
 	err = s.Run()

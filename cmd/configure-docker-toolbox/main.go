@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"mosi-docker-repo/pkg/cmdline"
+	"mosi-docker-registry/pkg/terminal"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -87,8 +87,8 @@ func installCertificates(fns *[]string) {
 }
 
 func inputArgs(a *args) {
-	cmdline.InputString("\nEnter the hosts to add to the default /etc/hosts file on the Docker VM.\nLeave blank to not change the hosts configuration.\nFormat: <IP> <HOSTNAME>, <IP> <HOSTNAME>, ...\nExample: 192.168.0.1 myhost, 192.168.0.2 yourhost\nHosts", "", &a.hosts)
-	cmdline.InputString("\nEnter the certificates to install on the Docker VM.\nLeave blank to not add certificates now.\nFormat: <FILENAME>, <FILENAME>, ...\nExample: mycert.crt, certs/yourcert.crt\nCerts", "", &a.certs)
+	terminal.InputString("\nEnter the hosts to add to the default /etc/hosts file on the Docker VM.\nLeave blank to not change the hosts configuration.\nFormat: <IP> <HOSTNAME>, <IP> <HOSTNAME>, ...\nExample: 192.168.0.1 myhost, 192.168.0.2 yourhost\nHosts", "", &a.hosts)
+	terminal.InputString("\nEnter the certificates to install on the Docker VM.\nLeave blank to not add certificates now.\nFormat: <FILENAME>, <FILENAME>, ...\nExample: mycert.crt, certs/yourcert.crt\nCerts", "", &a.certs)
 }
 
 func main() {

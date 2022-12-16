@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -48,7 +49,7 @@ func IsGzip(fn string) (bool, error) {
 
 func CreateDir(dir string) error {
 	fileInfo, err := os.Stat(dir)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return os.MkdirAll(dir, os.ModePerm)
 	}
 
@@ -133,7 +134,25 @@ func RenameOrDelete(src, dst string) error {
 	return err
 }
 
-func WriteBuffer(fn string, data []byte) (int, error) {
+func ReadBytes(fn string) (*[]byte, error) {
+	f, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	b := make([]byte, fi.Size())
+	_, err = f.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func WriteBytes(fn string, data []byte) (int, error) {
 	f, err := CreateFile(fn)
 	if err != nil {
 		return -1, err
@@ -256,4 +275,17 @@ func CreateDigestFromBuffer(buf []byte) (string, error) {
 		return "", err
 	}
 	return "sha256:" + hex.EncodeToString(sha.Sum(nil)), nil
+}
+
+func Bytes2IEC(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
