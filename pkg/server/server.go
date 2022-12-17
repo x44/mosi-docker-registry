@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"mosi-docker-registry/pkg/config"
+	"mosi-docker-registry/pkg/json"
 	"mosi-docker-registry/pkg/logging"
 	"mosi-docker-registry/pkg/repo"
 	"net/http"
@@ -98,10 +99,9 @@ func handleGetToken(w http.ResponseWriter, r *http.Request) {
 
 	setDefaultHeader(w)
 
-	rsp := map[string]any{
-		"token": token,
-	}
-	sendJson(w, 200, &rsp)
+	rsp := json.NewJsonObject()
+	rsp.Put("token", token)
+	sendJson(w, 200, rsp)
 }
 
 func handleGet(w http.ResponseWriter, r *http.Request) {

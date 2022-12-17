@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"mosi-docker-registry/pkg/json"
 	"net/http"
 )
 
@@ -14,26 +14,23 @@ func setDefaultHeader(w http.ResponseWriter) {
 }
 
 func sendError(w http.ResponseWriter, status int, code, msg string) {
-	var errors []any
-	errors = append(errors, createError(code, msg))
-
-	rsp := map[string]any{
-		"errors": errors,
-	}
-	sendJson(w, status, &rsp)
+	errors := json.NewJsonArray(1)
+	errors.Set(0, createError(code, msg))
+	rsp := json.NewJsonObject()
+	rsp.Put("errors", errors)
+	sendJson(w, status, rsp)
 }
 
-func createError(code, msg string) any {
-	err := map[string]any{
-		"code":    code,
-		"message": msg,
-		"detail":  nil,
-	}
+func createError(code, msg string) *json.JsonObject {
+	err := json.NewJsonObject()
+	err.Put("code", code)
+	err.Put("message", msg)
+	err.Put("detail", nil)
 	return err
 }
 
-func sendJson(w http.ResponseWriter, status int, rsp *map[string]any) {
+func sendJson(w http.ResponseWriter, status int, rsp *json.JsonObject) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(rsp)
+	rsp.EncodeWriter(w)
 }
