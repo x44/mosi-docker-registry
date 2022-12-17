@@ -1,6 +1,7 @@
 package json
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,6 +83,26 @@ func TestArrays(t *testing.T) {
 	assert.Equal(1, json.GetArrayUnsafe("array").GetArrayUnsafe(3).GetIntUnsafe(1))
 	assert.Equal(true, json.GetArrayUnsafe("array").GetArrayUnsafe(3).GetBoolUnsafe(2))
 	assert.Equal("val", json.GetArrayUnsafe("array").GetArrayUnsafe(3).GetObjectUnsafe(3).GetStringUnsafe("key"))
+}
+
+func TestArrayToString(t *testing.T) {
+	assert := assert.New(t)
+	json := NewJsonArray(3)
+
+	expected1 := make([]string, json.Len())
+	for i := 0; i < len(expected1); i++ {
+		expected1[i] = "empty"
+	}
+	assert.Equal(expected1, json.ToStringArray("empty"))
+
+	expected2 := make([]string, json.Len())
+	for i := 0; i < len(expected1); i++ {
+		s := fmt.Sprintf("%s%d", "val", i)
+		expected2[i] = s
+		json.Set(i, s)
+	}
+	assert.Equal(expected2, json.ToStringArray("empty"))
+	assert.Equal(expected2, json.ToStringArrayUnsafe())
 }
 
 func TestEncDec(t *testing.T) {

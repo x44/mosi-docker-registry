@@ -316,3 +316,30 @@ func (a *JsonArray) GetBool(index int, def bool) bool {
 	}
 	return def
 }
+
+func (a *JsonArray) ToAnyArray() []any {
+	l := a.Len()
+	ret := make([]any, l)
+	for i := 0; i < l; i++ {
+		ret[i] = a.array[i]
+	}
+	return ret
+}
+
+func (a *JsonArray) ToStringArrayUnsafe() []string {
+	l := a.Len()
+	ret := make([]string, l)
+	for i := 0; i < l; i++ {
+		ret[i] = a.GetStringUnsafe(i)
+	}
+	return ret
+}
+
+func (a *JsonArray) ToStringArray(def string) []string {
+	l := a.Len()
+	ret := make([]string, l)
+	for i := 0; i < l; i++ {
+		ret[i] = a.GetString(i, def)
+	}
+	return ret
+}
