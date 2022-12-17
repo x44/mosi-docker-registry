@@ -4,13 +4,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mosi-docker-registry/pkg/app"
 	"mosi-docker-registry/pkg/config"
 	"mosi-docker-registry/pkg/filesys"
+	"mosi-docker-registry/pkg/json"
 	"mosi-docker-registry/pkg/terminal"
 	"net/http"
 	"net/url"
@@ -159,10 +159,8 @@ func (c *mosiClient) stringContent(rsp *http.Response) (string, error) {
 	return string(b), nil
 }
 
-func (c *mosiClient) jsonContent(rsp *http.Response) (*map[string]interface{}, error) {
-	m := map[string]any{}
-	err := json.NewDecoder(rsp.Body).Decode(&m)
-	return &m, err
+func (c *mosiClient) jsonContent(rsp *http.Response) (*json.JsonObject, error) {
+	return json.DecodeReader(rsp.Body)
 }
 
 func (c *mosiClient) shouldRetry(err error, cnt *int) bool {
@@ -304,7 +302,7 @@ func (c *mosiClient) makeRequest(method string, urlOrPath string, body io.Reader
 	return req
 }
 
-func (c *mosiClient) Get(path string) *map[string]interface{} {
+func (c *mosiClient) Get(path string) *json.JsonObject {
 	req := c.makeRequest("GET", path, nil)
 	rsp := c.do(req)
 
