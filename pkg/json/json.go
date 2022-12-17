@@ -224,6 +224,14 @@ func NewJsonArray(len int) *JsonArray {
 	return a
 }
 
+func JsonArrayFromAny(elements ...any) *JsonArray {
+	a := NewJsonArray(len(elements))
+	for i, e := range elements {
+		a.Set(i, e)
+	}
+	return a
+}
+
 func JsonArrayFromStrings(elements ...string) *JsonArray {
 	a := NewJsonArray(len(elements))
 	for i, e := range elements {

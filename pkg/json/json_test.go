@@ -112,6 +112,15 @@ func TestStringsToArray(t *testing.T) {
 	assert.Equal(vals, json.ToStringArray("empty"))
 }
 
+func TestAnyToArray(t *testing.T) {
+	assert := assert.New(t)
+	vals := []any{"val0", 1, true}
+	json := JsonArrayFromAny(vals...)
+	assert.Equal("val0", json.GetString(0, ""))
+	assert.Equal(1, json.GetInt(1, -1))
+	assert.Equal(true, json.GetBool(2, false))
+}
+
 func TestEncDec(t *testing.T) {
 	assert := assert.New(t)
 
