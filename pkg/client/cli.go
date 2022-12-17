@@ -91,7 +91,7 @@ func printTable(table *json.JsonObject) {
 func printTables(jsonObject *json.JsonObject) {
 	tables := jsonObject.GetArray("tables", nil)
 	if tables == nil {
-		handleError("not tables in response")
+		handleError("no tables in response")
 	}
 	for i := 0; i < tables.Len(); i++ {
 		printTable(tables.GetObjectUnsafe(i))
