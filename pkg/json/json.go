@@ -224,6 +224,14 @@ func NewJsonArray(len int) *JsonArray {
 	return a
 }
 
+func JsonArrayFromStrings(elements ...string) *JsonArray {
+	a := NewJsonArray(len(elements))
+	for i, e := range elements {
+		a.array[i] = e
+	}
+	return a
+}
+
 func (a *JsonArray) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a.array)
 }

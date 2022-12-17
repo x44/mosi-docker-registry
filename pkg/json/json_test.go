@@ -85,7 +85,7 @@ func TestArrays(t *testing.T) {
 	assert.Equal("val", json.GetArrayUnsafe("array").GetArrayUnsafe(3).GetObjectUnsafe(3).GetStringUnsafe("key"))
 }
 
-func TestArrayToString(t *testing.T) {
+func TestArrayToStrings(t *testing.T) {
 	assert := assert.New(t)
 	json := NewJsonArray(3)
 
@@ -103,6 +103,13 @@ func TestArrayToString(t *testing.T) {
 	}
 	assert.Equal(expected2, json.ToStringArray("empty"))
 	assert.Equal(expected2, json.ToStringArrayUnsafe())
+}
+
+func TestStringsToArray(t *testing.T) {
+	assert := assert.New(t)
+	vals := []string{"val0", "val1", "val2"}
+	json := JsonArrayFromStrings(vals...)
+	assert.Equal(vals, json.ToStringArray("empty"))
 }
 
 func TestEncDec(t *testing.T) {
