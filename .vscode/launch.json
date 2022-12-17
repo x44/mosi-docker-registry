@@ -19,7 +19,7 @@
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// The following run the dev mode executable 'service' which operates on the dev mode executable 'program'
 		// First run the "Launch Program" configuration to have a running program executable.
-		// Then run one of the "Launch Service ..." configurations to apply service commands on the program executable.
+		// Then run one of the "Launch Service ..." configurations to apply service commands to the program executable.
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		{
 			"name": "Launch Service Start",
@@ -164,7 +164,7 @@
 		// Tests
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		{
-			"name": "Launch Tests",
+			"name": "Launch Test Current File",
 			"type": "go",
 			"request": "launch",
 			"mode": "test",
