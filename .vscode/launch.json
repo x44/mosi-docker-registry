@@ -126,6 +126,23 @@
 				"-s=mosi:4444", "-u=admin", "-p=admin"
 			]
 		},
+		{
+			"name": "Launch Command 'rm'",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "cmd/mosi/.",
+			"output": "_dev/command",
+			"cwd": "_dev",
+			"console": "integratedTerminal",
+			"args": [
+				"-dev",
+				"rm",
+				"vertx*:2.*",
+				"-dry",
+				"-s=mosi:4444", "-u=admin", "-p=admin"
+			]
+		},
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// Run tool: configure-docker-toolbox
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,45 +1,106 @@
 package server
 
 import (
+	"mosi-docker-registry/pkg/json"
+	"mosi-docker-registry/pkg/logging"
 	"mosi-docker-registry/pkg/repo"
 	"net/http"
 	"strings"
 )
 
-// /v2/cli/...
-func cliHandleGet(w http.ResponseWriter, r *http.Request) {
+func parseRequest(w http.ResponseWriter, r *http.Request) (ok bool, cmd string, paths []string, args *json.JsonObject) {
+	ok = false
+	cmd = ""
+	paths = nil
+	args = nil
+
 	if !checkAdminAuth(w, r) {
 		return
 	}
 
-	paths := splitPath(r)[2:]
+	paths = splitPath(r)[2:]
 
 	if len(paths) == 0 {
 		sendError(w, 400, "BAD REQUEST", "Missing command.")
 		return
 	}
 
-	cmd := paths[0]
+	cmd = paths[0]
 	paths = paths[1:]
+
+	argsStr := r.Header.Get("args")
+	if len(argsStr) > 0 {
+		var err error
+		args, err = json.DecodeString(argsStr)
+		if err != nil {
+			sendError(w, 400, "BAD REQUEST", "Invalid Json args in header")
+			return
+		}
+	}
+	ok = true
+	return
+}
+
+// /v2/cli/...
+func cliHandleGet(w http.ResponseWriter, r *http.Request) {
+	ok, cmd, paths, args := parseRequest(w, r)
+	if !ok {
+		return
+	}
 
 	switch cmd {
 	case "ls":
-		cliHandleGetList(w, paths)
+		cliHandleGetListImages(w, paths, args)
 	default:
 		sendError(w, 400, "BAD REQUEST", "Unknown command '"+cmd+"'")
 	}
 }
 
-func cliHandleGetList(w http.ResponseWriter, args []string) {
+func cliHandleGetListImages(w http.ResponseWriter, paths []string, args *json.JsonObject) {
 	img := ""
 	tag := ""
-	if len(args) > 0 {
-		img, tag = getImageAndTag(args[0])
+	if len(paths) > 0 {
+		img, tag = getImageAndTag(paths[0])
 	}
 
 	json, err := repo.List(img, tag)
 
 	if err != nil {
+		logging.Error(LOG, err)
+		w.WriteHeader(500)
+		return
+	}
+
+	sendJson(w, 200, json)
+}
+
+// /v2/cli/...
+func cliHandleDelete(w http.ResponseWriter, r *http.Request) {
+	ok, cmd, paths, args := parseRequest(w, r)
+	if !ok {
+		return
+	}
+
+	switch cmd {
+	case "rm":
+		cliHandleDeleteImages(w, paths, args)
+	default:
+		sendError(w, 400, "BAD REQUEST", "Unknown command '"+cmd+"'")
+	}
+}
+
+func cliHandleDeleteImages(w http.ResponseWriter, paths []string, args *json.JsonObject) {
+	img := ""
+	tag := ""
+	if len(paths) > 0 {
+		img, tag = getImageAndTag(paths[0])
+	}
+
+	dry := args.GetBool("dry", false)
+	json, err := repo.Delete(img, tag, dry)
+
+	if err != nil {
+		logging.Error(LOG, err)
 		w.WriteHeader(500)
 		return
 	}

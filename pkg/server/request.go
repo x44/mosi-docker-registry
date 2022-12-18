@@ -7,7 +7,7 @@ import (
 )
 
 func printRequest(r *http.Request) {
-	logging.Debug(LOG, r.Method+" "+r.Host+" "+r.RequestURI)
+	logging.Debug(LOG, "%s %s %s", r.Method, r.Host, r.RequestURI)
 	// for key := range r.Header {
 	// 	vals := r.Header[key]
 	// 	if len(vals) == 0 {

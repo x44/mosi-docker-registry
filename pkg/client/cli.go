@@ -91,7 +91,7 @@ func printTable(table *json.JsonObject) {
 func printTables(jsonObject *json.JsonObject) {
 	tables := jsonObject.GetArray("tables", nil)
 	if tables == nil {
-		handleError("no tables in response")
+		return
 	}
 	for i := 0; i < tables.Len(); i++ {
 		printTable(tables.GetObjectUnsafe(i))
@@ -100,6 +100,15 @@ func printTables(jsonObject *json.JsonObject) {
 
 func List(args []string) {
 	client := create(&args, 0)
-	jsonObject := client.Get(makePath("/v2/cli/ls/", args))
+	jsonObject := client.Get(makePath("/v2/cli/ls/", args), nil)
+	printTables(jsonObject)
+}
+
+func Delete(args []string) {
+	client := create(&args, 0)
+	jsonArgs := json.NewJsonObject()
+	jsonArgs.Put("dry", app.ArgsBool("-dry", false, &args))
+	app.ArgsClean(&args)
+	jsonObject := client.Delete(makePath("/v2/cli/rm/", args), jsonArgs)
 	printTables(jsonObject)
 }

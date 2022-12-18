@@ -145,7 +145,7 @@ func (c *mosiClient) makeUrl(urlOrPath string) string {
 		return urlOrPath
 	}
 	sep := ""
-	if len(urlOrPath) > 0 {
+	if len(urlOrPath) > 0 && !strings.HasPrefix(urlOrPath, "/") {
 		sep = "/"
 	}
 	return fmt.Sprintf("%s://%s:%d%s%s", c.protocol, c.host, c.port, sep, urlOrPath)
@@ -276,7 +276,7 @@ func (c *mosiClient) updateToken(initialRsp *http.Response) bool {
 		return false
 	}
 
-	req := c.makeRequest("GET", tokenAuthUrl, nil)
+	req := c.makeRequest("GET", tokenAuthUrl, nil, nil)
 	c.setBasicAuth(req)
 	rsp, err := c.client.Do(req)
 
@@ -296,14 +296,33 @@ func (c *mosiClient) updateToken(initialRsp *http.Response) bool {
 	return false
 }
 
-func (c *mosiClient) makeRequest(method string, urlOrPath string, body io.Reader) *http.Request {
+func (c *mosiClient) makeRequest(method string, urlOrPath string, args *json.JsonObject, body io.Reader) *http.Request {
 	req, err := http.NewRequest(method, c.makeUrl(urlOrPath), body)
 	app.CheckError("Failed to create request", err)
+	if args != nil {
+		argsStr, err := args.EncodeString()
+		app.CheckError("Failed to encode request args Json", err)
+		req.Header.Set("args", argsStr)
+	}
 	return req
 }
 
-func (c *mosiClient) Get(path string) *json.JsonObject {
-	req := c.makeRequest("GET", path, nil)
+func (c *mosiClient) Get(path string, args *json.JsonObject) *json.JsonObject {
+	req := c.makeRequest("GET", path, args, nil)
+	rsp := c.do(req)
+
+	if rsp.StatusCode != 200 {
+		app.CheckError("", errors.New(rsp.Status))
+	}
+
+	result, err := c.jsonContent(rsp)
+	app.CheckError("Failed to read JSON content", err)
+
+	return result
+}
+
+func (c *mosiClient) Delete(path string, args *json.JsonObject) *json.JsonObject {
+	req := c.makeRequest("DELETE", path, args, nil)
 	rsp := c.do(req)
 
 	if rsp.StatusCode != 200 {

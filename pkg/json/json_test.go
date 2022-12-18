@@ -153,7 +153,7 @@ func TestEncDec(t *testing.T) {
 	s, err := json1.EncodePretty("\t")
 	assert.Nil(err, "Encode failed %v", err)
 
-	json2, err := Decode(s)
+	json2, err := DecodeString(s)
 	assert.Nil(err, "Decode failed %v", err)
 
 	sub2 := json2.GetObjectUnsafe("sub")

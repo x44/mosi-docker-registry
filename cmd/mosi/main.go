@@ -41,7 +41,38 @@ var programCommands = []app.ProgramCommand{
 		Description: "List images, tags and layers.",
 		Args: []app.ProgramCommandArg{
 			{
-				Arg: "[name]:[tag]", Description: "Image name and tag filter.\nExamples:\nls                  List all images.\nls my*              List all images starting with 'my'.\nls myimage:1.*      List layers of 'myimage' with tags starting with '1.'.\nls :                List layers of all images.\n",
+				Arg: "[name]:[tag]", Description: "Image name and tag filter.\nExamples:\n" +
+					"ls                  List all images.\n" +
+					"ls my*              List images starting with 'my'.\n" +
+					"ls myimage:1.*      List layers of image 'myimage' with tags starting with '1.'.\n" +
+					"ls :1.*             List layers of all images with tags starting with '1.'.\n" +
+					"ls :                List layers of all images.\n",
+			},
+			{
+				Arg: "-s host:port", Description: "Run the command on the given machine. Optional.",
+			},
+			{
+				Arg: "-u username", Description: "Authenticate with the given username. Optional.",
+			},
+			{
+				Arg: "-p password", Description: "Authenticate with the given password. Optional.",
+			},
+		},
+	},
+	{
+		Run:         client.Delete,
+		Cmd:         "rm",
+		Description: "Delete images.",
+		Args: []app.ProgramCommandArg{
+			{
+				Arg: "[name]:[tag]", Description: "Image name and tag filter.\nExamples:\n" +
+					"ls                  Delete all images.\n" +
+					"ls my*              Delete all images starting with 'my'.\n" +
+					"ls myimage:1.*      Delete image 'myimage' with tags starting with '1.'.\n" +
+					"ls :1.*             Delete all images with tags starting with '1.'.\n",
+			},
+			{
+				Arg: "-dry", Description: "Do NOT delete anything but show what would be deleted. Optional.",
 			},
 			{
 				Arg: "-s host:port", Description: "Run the command on the given machine. Optional.",
@@ -88,7 +119,7 @@ func run(exe, cwd string, cmd *app.ProgramCommand, args []string) {
 	// re-init logging with config log settings
 	InitLogging(config.LogLevelService(), config.LogLevelConsole(), config.LogLevelFile(), true, true, true)
 
-	logging.Info("MAIN", "run()\nrunning as a service: %v\ncwd: %s\nexe: %s\ncfg: %s\nlog: %s\nrepo: %s\ncmd: %v\nargs: %v\n", !service.Interactive(), cwd, exe, cfgFile, logFile, config.RepoDir(), cmd, args)
+	// logging.Info("MAIN", "run()\nrunning as a service: %v\ncwd: %s\nexe: %s\ncfg: %s\nlog: %s\nrepo: %s\ncmd: %v\nargs: %v\n", !service.Interactive(), cwd, exe, cfgFile, logFile, config.RepoDir(), cmd, args)
 	server.Start(Version)
 }
 

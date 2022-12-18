@@ -23,7 +23,7 @@ type token struct {
 	imagesAllowedToPush []string
 }
 
-var _tokens = map[string]*token{}
+var tokens = map[string]*token{}
 
 func initAuth(w http.ResponseWriter, r *http.Request) bool {
 	return checkAuth(w, r, "", false, false, false)
@@ -77,10 +77,10 @@ func checkTokenAuth(r *http.Request, img string, wantPush, wantAdmin bool) bool 
 		return false
 	}
 	tokenStr := auth[7:]
-	if token, ok := _tokens[tokenStr]; ok {
+	if token, ok := tokens[tokenStr]; ok {
 		now := time.Now().UnixMilli()
 		if tokenMaxAge >= 0 && now-token.time > tokenMaxAge {
-			delete(_tokens, tokenStr)
+			delete(tokens, tokenStr)
 			return false
 		}
 		token.time = now
@@ -165,7 +165,7 @@ func createTokenFromBasicAuth(r *http.Request, allowAnonymous, store bool) (stri
 
 	if store {
 		cleanupTokens()
-		_tokens[tokenStr] = &token
+		tokens[tokenStr] = &token
 	}
 
 	return tokenStr, &token
@@ -190,9 +190,9 @@ func getUsrAndPwd(auth string) (string, string) {
 
 func cleanupTokens() {
 	now := time.Now().UnixMilli()
-	for tokenStr, token := range _tokens {
+	for tokenStr, token := range tokens {
 		if now-token.time > tokenMaxAge {
-			delete(_tokens, tokenStr)
+			delete(tokens, tokenStr)
 		}
 	}
 }

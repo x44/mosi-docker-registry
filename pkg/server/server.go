@@ -72,6 +72,8 @@ func route(w http.ResponseWriter, r *http.Request) {
 		handlePatch(w, r)
 	case "PUT":
 		handlePut(w, r)
+	case "DELETE":
+		handleDelete(w, r)
 	default:
 		w.WriteHeader(404)
 	}
@@ -364,4 +366,16 @@ func handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logging.Error(LOG, "failed to write content: %s", err.Error())
 	}
+}
+
+func handleDelete(w http.ResponseWriter, r *http.Request) {
+	paths := splitPath(r)
+
+	// /v2/cli/...
+	if len(paths) > 1 && paths[1] == "cli" {
+		cliHandleDelete(w, r)
+		return
+	}
+
+	w.WriteHeader(404)
 }

@@ -14,7 +14,7 @@ type JsonArray struct {
 	array []interface{}
 }
 
-func Decode(s string) (*JsonObject, error) {
+func DecodeString(s string) (*JsonObject, error) {
 	return DecodeReader(strings.NewReader(s))
 }
 
@@ -110,7 +110,7 @@ func NewJsonObject() *JsonObject {
 	return &JsonObject{}
 }
 
-func (j *JsonObject) Encode() (string, error) {
+func (j *JsonObject) EncodeString() (string, error) {
 	b, err := j.EncodeBytes()
 	if err != nil {
 		return "", err

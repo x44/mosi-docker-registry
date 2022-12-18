@@ -8,7 +8,6 @@ import (
 	"mosi-docker-registry/pkg/filesys"
 	"mosi-docker-registry/pkg/json"
 	"mosi-docker-registry/pkg/logging"
-	"mosi-docker-registry/pkg/wildcard"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -247,6 +246,14 @@ func download(fn, contentType string, w http.ResponseWriter) error {
 	return err
 }
 
+func deleteImage(img, tag string) error {
+	dir, err := getManifestServedDir(img, tag)
+	if err != nil {
+		return err
+	}
+	return filesys.DeleteDir(dir)
+}
+
 func Cleanup() {
 	logging.Debug(LOG, "cleanup")
 	imgs, err := getImages()
@@ -277,23 +284,22 @@ func CleanupImage(img string) {
 			logging.Error(LOG, "cleanup failed to get image manifest json")
 			continue
 		}
-		// TODO
-		if config, ok := manifestJson["config"].(map[string]interface{}); ok {
-			digest := config["digest"].(string)
-			digests[digest] = true
-		} else {
-			logging.Error(LOG, "cleanup failed to get image config from manifest json")
+
+		configDigest, err := getManifestConfigDigest(manifestJson)
+		if err != nil {
+			logging.Error(LOG, "cleanup failed to get image config digest from manifest json")
 			continue
 		}
-		if layers, ok := manifestJson["layers"].([]interface{}); ok {
-			for _, layer := range layers {
-				m := layer.(map[string]interface{})
-				digest := m["digest"].(string)
-				digests[digest] = true
-			}
-		} else {
-			logging.Error(LOG, "cleanup failed to get image layers from manifest json")
+
+		layerDigests, err := getManifestLayerDigests(manifestJson)
+		if err != nil {
+			logging.Error(LOG, "cleanup failed to get image layer digests from manifest json")
 			continue
+		}
+
+		digests[configDigest] = true
+		for _, layerDigest := range layerDigests {
+			digests[layerDigest] = true
 		}
 	}
 
@@ -313,6 +319,34 @@ func CleanupImage(img string) {
 			}
 		}
 	}
+
+	// check if image has remaining tags, otherwise delete image directory
+	tags, err = getImageTags(img)
+	if err != nil {
+		logging.Error(LOG, "cleanup failed to get image tags")
+		return
+	}
+	if len(tags) == 0 {
+		dir, err := getImageServedDir(img)
+		if err != nil {
+			logging.Error(LOG, "cleanup failed to get image directory")
+			return
+		}
+		logging.Debug(LOG, "deleting image directory %s", dir)
+		err = filesys.DeleteDir(dir)
+		if err != nil {
+			logging.Error(LOG, "cleanup failed to delete image directory %s", dir)
+		}
+	}
+}
+
+func getImageServedDir(img string) (string, error) {
+	dir := filepath.Join(config.RepoDir(), config.ServerPath(), img)
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 // repo/v2/imagename/uploads/uploadUid
@@ -417,12 +451,12 @@ func getManifestFile(img, tag string) (string, error) {
 	return filepath.Join(dir, fn), nil
 }
 
-func getManifestJson(img, tag string) (map[string]any, error) {
+func getManifestJson(img, tag string) (*json.JsonObject, error) {
 	manifest, err := getManifestFile(img, tag)
 	if err != nil {
 		return nil, err
 	}
-	return filesys.ReadJson(manifest)
+	return json.DecodeFile(manifest)
 }
 
 func getBlobFiles(img string) ([]string, error) {
@@ -441,203 +475,61 @@ func getBlobFiles(img string) ([]string, error) {
 	return fns, nil
 }
 
-func getManifestConfig(manifestJson *map[string]any) (*map[string]interface{}, error) {
-	if config, ok := (*manifestJson)["config"].(map[string]interface{}); ok {
-		return &config, nil
+func getManifestConfig(manifestJson *json.JsonObject) (*json.JsonObject, error) {
+	if config := manifestJson.GetObject("config", nil); config != nil {
+		return config, nil
 	}
 	return nil, errors.New("failed to get config from manifest")
 }
 
-func getManifestConfigDigest(manifestJson *map[string]any) (string, error) {
+func getManifestConfigDigest(manifestJson *json.JsonObject) (string, error) {
 	config, err := getManifestConfig(manifestJson)
 	if err != nil {
 		return "", nil
 	}
-	if digest, ok := (*config)["digest"].(string); ok {
+	if digest := config.GetString("digest", ""); len(digest) > 0 {
 		return digest, nil
 	}
 	return "", errors.New("failed to get config digest from manifest")
 }
 
-func getManifestLayers(manifestJson *map[string]any) (*[]interface{}, error) {
-	if layers, ok := (*manifestJson)["layers"].([]interface{}); ok {
-		return &layers, nil
-
+func getManifestLayers(manifestJson *json.JsonObject) (*json.JsonArray, error) {
+	if layers := manifestJson.GetArray("layers", nil); layers != nil {
+		return layers, nil
 	}
 	return nil, errors.New("failed to get layers from manifest")
 }
 
-func getManifestLayer(manifestLayers *[]interface{}, index int) (*map[string]interface{}, error) {
-	if layer, ok := (*manifestLayers)[index].(map[string]interface{}); ok {
-		return &layer, nil
+func getManifestLayer(manifestLayers *json.JsonArray, index int) (*json.JsonObject, error) {
+	if layer := manifestLayers.GetObject(index, nil); layer != nil {
+		return layer, nil
 	}
 	return nil, errors.New("failed to get layer from manifest")
 }
 
-func getManifestLayerDigest(manifestLayers *[]interface{}, index int) (string, error) {
+func getManifestLayerDigest(manifestLayers *json.JsonArray, index int) (string, error) {
 	layer, err := getManifestLayer(manifestLayers, index)
 	if err != nil {
 		return "", err
 	}
-	if digest, ok := (*layer)["digest"].(string); ok {
+	if digest := layer.GetString("digest", ""); len(digest) > 0 {
 		return digest, nil
 	}
-	return "", errors.New("failed to get digtest from manifest layer")
+	return "", errors.New("failed to get digest from manifest layer")
 }
 
-func getManifestLayerDigests(manifestJson *map[string]any) ([]string, error) {
-	manifestLayers, err := getManifestLayers(manifestJson)
+func getManifestLayerDigests(manifestJson *json.JsonObject) ([]string, error) {
+	layers, err := getManifestLayers(manifestJson)
 	if err != nil {
 		return nil, err
 	}
-	var digests = make([]string, len(*manifestLayers))
-	for i := 0; i < len(*manifestLayers); i++ {
-		digest, err := getManifestLayerDigest(manifestLayers, i)
+	digests := make([]string, layers.Len())
+	for i := 0; i < layers.Len(); i++ {
+		digest, err := getManifestLayerDigest(layers, i)
 		if err != nil {
 			return nil, err
 		}
 		digests[i] = digest
 	}
 	return digests, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// CLI
-////////////////////////////////////////////////////////////////////////////////
-
-func List(imgPattern, tagPattern string) (*json.JsonObject, error) {
-	if tagPattern == "" {
-		return listImages(imgPattern)
-	} else {
-		return listLayers(imgPattern, tagPattern)
-	}
-}
-
-func listImages(imgPattern string) (*json.JsonObject, error) {
-	imgs, err := getImages()
-	if err != nil {
-		return nil, err
-	}
-
-	tables := json.NewJsonArray(0)
-	res := json.NewJsonObject()
-	res.Put("tables", tables)
-
-	var table *json.JsonObject = nil
-	var rows *json.JsonArray = nil
-
-	for _, img := range imgs {
-		if wildcard.Matches(img, imgPattern) {
-
-			if table == nil {
-				table = json.NewJsonObject()
-				table.Put("fields", json.JsonArrayFromStrings("Image", "Tags", "Blobs", "Size"))
-				tables.Add(table)
-
-				rows = json.NewJsonArray(0)
-				table.Put("rows", rows)
-			}
-
-			nTags := -1
-			tags, err := getImageTags(img)
-			if err != nil {
-				return nil, err
-			}
-			nTags = len(tags)
-
-			nBlobs := -1
-			var nBlobBytes int64 = 0
-			blobs, err := getBlobFiles(img)
-			if err != nil {
-				return nil, err
-			}
-			nBlobs = len(blobs)
-
-			for _, blob := range blobs {
-				size, err := filesys.Size(blob)
-				if err != nil {
-					return nil, err
-				}
-				nBlobBytes += size
-			}
-			rows.Add(json.JsonArrayFromAny(img, nTags, nBlobs, filesys.Bytes2IEC(nBlobBytes)))
-		}
-	}
-
-	return res, nil
-}
-
-func listLayers(imgPattern, tagPattern string) (*json.JsonObject, error) {
-	imgs, err := getImages()
-	if err != nil {
-		return nil, err
-	}
-
-	tables := json.NewJsonArray(0)
-	res := json.NewJsonObject()
-	res.Put("tables", tables)
-
-	for _, img := range imgs {
-		if wildcard.Matches(img, imgPattern) {
-
-			tags, err := getImageTags(img)
-			if err != nil {
-				return nil, err
-			}
-			for _, tag := range tags {
-				if wildcard.Matches(tag, tagPattern) {
-
-					table := json.NewJsonObject()
-					tables.Add(table)
-					table.Put("fields", json.JsonArrayFromStrings("Image", "Tag", "Layer", "Size"))
-					rows := json.NewJsonArray(0)
-					table.Put("rows", rows)
-
-					manifestJson, err := getManifestJson(img, tag)
-					if err != nil {
-						return nil, err
-					}
-
-					// configDigest, err := getManifestConfigDigest(&manifestJson)
-					// if err != nil {
-					// 	return nil, err
-					// }
-
-					layerDigests, err := getManifestLayerDigests(&manifestJson)
-					if err != nil {
-						return nil, err
-					}
-
-					for _, layerDigest := range layerDigests {
-						servedBlobFn, err := getBlobServedFilename(img, layerDigest)
-						if err != nil {
-							return nil, err
-						}
-						nLayerBytes, err := filesys.Size(servedBlobFn)
-						if err != nil {
-							return nil, err
-						}
-
-						rows.Add(json.JsonArrayFromStrings(img, tag, layerDigest, filesys.Bytes2IEC(nLayerBytes)))
-					}
-				}
-			}
-
-			// nBlobs := -1
-			// var nBlobBytes int64 = 0
-			// blobs, err := getBlobFiles(img)
-			// if err == nil {
-			// 	nBlobs = len(blobs)
-
-			// 	for _, blob := range blobs {
-			// 		size, err := filesys.Size(blob)
-			// 		if err == nil {
-			// 			nBlobBytes += size
-			// 		}
-			// 	}
-			// }
-		}
-	}
-
-	return res, nil
 }
