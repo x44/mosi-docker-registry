@@ -3,7 +3,6 @@ package filesys
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -238,20 +237,6 @@ func FindFile(dir, fn string) (string, error) {
 		}
 	}
 	return "", nil
-}
-
-func ReadJson(fn string) (map[string]any, error) {
-	f, err := os.Open(fn)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	m := map[string]any{}
-	err = json.NewDecoder(f).Decode(&m)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func CreateDigestFromFile(fn string) (string, error) {
