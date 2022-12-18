@@ -277,7 +277,7 @@ func CleanupImage(img string) {
 			logging.Error(LOG, "cleanup failed to get image manifest json")
 			continue
 		}
-
+		// TODO
 		if config, ok := manifestJson["config"].(map[string]interface{}); ok {
 			digest := config["digest"].(string)
 			digests[digest] = true
@@ -505,110 +505,15 @@ func getManifestLayerDigests(manifestJson *map[string]any) ([]string, error) {
 // CLI
 ////////////////////////////////////////////////////////////////////////////////
 
-// func List(imgPattern, tagPattern string) (*json.JsonObject, error) {
-
-// 	// ls
-// 	// image1
-// 	// image2
-
-// 	// ls image1
-// 	// image1:1.0
-// 	// image1:latest
-
-// 	// ll
-// 	// image1:1.0 layer1
-// 	// image1:1.0 layer2
-// 	// image2:1.0 layer1
-// 	// image2:1.0 layer2
-
-// 	imgs, err := getImages()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	tables := json.NewJsonArray(0)
-// 	res := json.NewJsonObject()
-// 	res.Put("tables", tables)
-
-// 	for _, img := range imgs {
-// 		if wildcard.Matches(img, imgPattern) {
-
-// 			tags, err := getImageTags(img)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			for _, tag := range tags {
-
-// 				table := json.NewJsonObject()
-// 				tables.Add(table)
-// 				table.Put("fields", json.JsonArrayFromStrings("Image", "Tag", "Layer", "Size"))
-// 				rows := json.NewJsonArray(0)
-// 				table.Put("rows", rows)
-
-// 				manifestJson, err := getManifestJson(img, tag)
-// 				if err != nil {
-// 					return nil, err
-// 				}
-
-// 				// configDigest, err := getManifestConfigDigest(&manifestJson)
-// 				// if err != nil {
-// 				// 	return nil, err
-// 				// }
-
-// 				layerDigests, err := getManifestLayerDigests(&manifestJson)
-// 				if err != nil {
-// 					return nil, err
-// 				}
-
-// 				for _, layerDigest := range layerDigests {
-// 					servedBlobFn, err := getBlobServedFilename(img, layerDigest)
-// 					if err != nil {
-// 						return nil, err
-// 					}
-// 					nLayerBytes, err := filesys.Size(servedBlobFn)
-// 					if err != nil {
-// 						return nil, err
-// 					}
-
-// 					rows.Add(json.JsonArrayFromStrings(img, tag, layerDigest, filesys.Bytes2IEC(nLayerBytes)))
-// 				}
-// 			}
-
-// 			// nBlobs := -1
-// 			// var nBlobBytes int64 = 0
-// 			// blobs, err := getBlobFiles(img)
-// 			// if err == nil {
-// 			// 	nBlobs = len(blobs)
-
-// 			// 	for _, blob := range blobs {
-// 			// 		size, err := filesys.Size(blob)
-// 			// 		if err == nil {
-// 			// 			nBlobBytes += size
-// 			// 		}
-// 			// 	}
-// 			// }
-// 		}
-// 	}
-
-// 	return res, nil
-// }
-
 func List(imgPattern, tagPattern string) (*json.JsonObject, error) {
+	if tagPattern == "" {
+		return listImages(imgPattern)
+	} else {
+		return listLayers(imgPattern, tagPattern)
+	}
+}
 
-	// ls
-	// image1
-	// image2
-
-	// ls image1
-	// image1:1.0
-	// image1:latest
-
-	// ll
-	// image1:1.0 layer1
-	// image1:1.0 layer2
-	// image2:1.0 layer1
-	// image2:1.0 layer2
-
+func listImages(imgPattern string) (*json.JsonObject, error) {
 	imgs, err := getImages()
 	if err != nil {
 		return nil, err
@@ -618,15 +523,20 @@ func List(imgPattern, tagPattern string) (*json.JsonObject, error) {
 	res := json.NewJsonObject()
 	res.Put("tables", tables)
 
-	table := json.NewJsonObject()
-	table.Put("fields", json.JsonArrayFromStrings("Image", "Tags", "Blobs", "Size"))
-	tables.Add(table)
-
-	rows := json.NewJsonArray(0)
-	table.Put("rows", rows)
+	var table *json.JsonObject = nil
+	var rows *json.JsonArray = nil
 
 	for _, img := range imgs {
 		if wildcard.Matches(img, imgPattern) {
+
+			if table == nil {
+				table = json.NewJsonObject()
+				table.Put("fields", json.JsonArrayFromStrings("Image", "Tags", "Blobs", "Size"))
+				tables.Add(table)
+
+				rows = json.NewJsonArray(0)
+				table.Put("rows", rows)
+			}
 
 			nTags := -1
 			tags, err := getImageTags(img)
@@ -657,178 +567,77 @@ func List(imgPattern, tagPattern string) (*json.JsonObject, error) {
 	return res, nil
 }
 
-// func List(imgPattern, tagPattern string) (*map[string]interface{}, error) {
+func listLayers(imgPattern, tagPattern string) (*json.JsonObject, error) {
+	imgs, err := getImages()
+	if err != nil {
+		return nil, err
+	}
 
-// 	// ls
-// 	// image1
-// 	// image2
+	tables := json.NewJsonArray(0)
+	res := json.NewJsonObject()
+	res.Put("tables", tables)
 
-// 	// ls image1
-// 	// image1:1.0
-// 	// image1:latest
+	for _, img := range imgs {
+		if wildcard.Matches(img, imgPattern) {
 
-// 	// ll
-// 	// image1:1.0 layer1
-// 	// image1:1.0 layer2
-// 	// image2:1.0 layer1
-// 	// image2:1.0 layer2
+			tags, err := getImageTags(img)
+			if err != nil {
+				return nil, err
+			}
+			for _, tag := range tags {
+				if wildcard.Matches(tag, tagPattern) {
 
-// 	var tables []interface{}
+					table := json.NewJsonObject()
+					tables.Add(table)
+					table.Put("fields", json.JsonArrayFromStrings("Image", "Tag", "Layer", "Size"))
+					rows := json.NewJsonArray(0)
+					table.Put("rows", rows)
 
-// 	imgs, err := getImages()
-// 	if err != nil {
-// 		return nil, err
-// 	}
+					manifestJson, err := getManifestJson(img, tag)
+					if err != nil {
+						return nil, err
+					}
 
-// 	for _, img := range imgs {
-// 		if wildcard.Matches(img, imgPattern) {
+					// configDigest, err := getManifestConfigDigest(&manifestJson)
+					// if err != nil {
+					// 	return nil, err
+					// }
 
-// 			tags, err := getImageTags(img)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			for _, tag := range tags {
+					layerDigests, err := getManifestLayerDigests(&manifestJson)
+					if err != nil {
+						return nil, err
+					}
 
-// 				var table = map[string]any{}
-// 				table["fields"] = []string{
-// 					"Image",
-// 					"Tag",
-// 					"Layer",
-// 					"Size",
-// 				}
-// 				tables = append(tables, table)
-// 				var values [][]interface{}
+					for _, layerDigest := range layerDigests {
+						servedBlobFn, err := getBlobServedFilename(img, layerDigest)
+						if err != nil {
+							return nil, err
+						}
+						nLayerBytes, err := filesys.Size(servedBlobFn)
+						if err != nil {
+							return nil, err
+						}
 
-// 				manifestJson, err := getManifestJson(img, tag)
-// 				if err != nil {
-// 					return nil, err
-// 				}
+						rows.Add(json.JsonArrayFromStrings(img, tag, layerDigest, filesys.Bytes2IEC(nLayerBytes)))
+					}
+				}
+			}
 
-// 				// configDigest, err := getManifestConfigDigest(&manifestJson)
-// 				// if err != nil {
-// 				// 	return nil, err
-// 				// }
+			// nBlobs := -1
+			// var nBlobBytes int64 = 0
+			// blobs, err := getBlobFiles(img)
+			// if err == nil {
+			// 	nBlobs = len(blobs)
 
-// 				layerDigests, err := getManifestLayerDigests(&manifestJson)
-// 				if err != nil {
-// 					return nil, err
-// 				}
+			// 	for _, blob := range blobs {
+			// 		size, err := filesys.Size(blob)
+			// 		if err == nil {
+			// 			nBlobBytes += size
+			// 		}
+			// 	}
+			// }
+		}
+	}
 
-// 				for _, layerDigest := range layerDigests {
-// 					servedBlobFn, err := getBlobServedFilename(img, layerDigest)
-// 					if err != nil {
-// 						return nil, err
-// 					}
-// 					nLayerBytes, err := filesys.Size(servedBlobFn)
-// 					if err != nil {
-// 						return nil, err
-// 					}
-
-// 					values = append(values, []any{
-// 						img,
-// 						tag,
-// 						layerDigest,
-// 						filesys.Bytes2IEC(nLayerBytes),
-// 					})
-// 				}
-
-// 				table["values"] = values
-// 			}
-
-// 			// nBlobs := -1
-// 			// var nBlobBytes int64 = 0
-// 			// blobs, err := getBlobFiles(img)
-// 			// if err == nil {
-// 			// 	nBlobs = len(blobs)
-
-// 			// 	for _, blob := range blobs {
-// 			// 		size, err := filesys.Size(blob)
-// 			// 		if err == nil {
-// 			// 			nBlobBytes += size
-// 			// 		}
-// 			// 	}
-// 			// }
-// 		}
-// 	}
-
-// 	res := map[string]any{
-// 		"tables": tables,
-// 	}
-// 	return &res, nil
-// }
-
-// func List(imgPattern, tagPattern string) (*map[string]interface{}, error) {
-
-// 	// ls
-// 	// image1
-// 	// image2
-
-// 	// ls image1
-// 	// image1:1.0
-// 	// image1:latest
-
-// 	// ll
-// 	// image1:1.0 layer1
-// 	// image1:1.0 layer2
-// 	// image2:1.0 layer1
-// 	// image2:1.0 layer2
-
-// 	var tables []interface{}
-
-// 	imgs, err := getImages()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var table = map[string]any{}
-// 	table["fields"] = []string{
-// 		"Image",
-// 		"Tags",
-// 		"Blobs",
-// 		"Size",
-// 	}
-// 	tables = append(tables, table)
-// 	var values [][]interface{}
-
-// 	for _, img := range imgs {
-// 		if wildcard.Matches(img, imgPattern) {
-
-// 			nTags := -1
-// 			tags, err := getImageTags(img)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			nTags = len(tags)
-
-// 			nBlobs := -1
-// 			var nBlobBytes int64 = 0
-// 			blobs, err := getBlobFiles(img)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			nBlobs = len(blobs)
-
-// 			for _, blob := range blobs {
-// 				size, err := filesys.Size(blob)
-// 				if err != nil {
-// 					return nil, err
-// 				}
-// 				nBlobBytes += size
-// 			}
-
-// 			values = append(values, []any{
-// 				img,
-// 				nTags,
-// 				nBlobs,
-// 				filesys.Bytes2IEC(nBlobBytes),
-// 			})
-// 		}
-// 	}
-
-// 	table["values"] = values
-
-// 	res := map[string]any{
-// 		"tables": tables,
-// 	}
-// 	return &res, nil
-// }
+	return res, nil
+}
