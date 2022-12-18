@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -19,6 +20,15 @@ func Decode(s string) (*JsonObject, error) {
 
 func DecodeBytes(b []byte) (*JsonObject, error) {
 	return DecodeReader(bytes.NewReader(b))
+}
+
+func DecodeFile(fn string) (*JsonObject, error) {
+	f, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return DecodeReader(f)
 }
 
 func DecodeReader(reader io.Reader) (*JsonObject, error) {
