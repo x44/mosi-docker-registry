@@ -32,7 +32,7 @@ var programCommands = []app.ProgramCommand{
 	{
 		Run:         printVersion,
 		Cmd:         "version",
-		Description: "Print the program version and exit.",
+		Description: "Print program version.",
 		Args:        []app.ProgramCommandArg{},
 	},
 	{
@@ -41,7 +41,7 @@ var programCommands = []app.ProgramCommand{
 		Description: "List images, tags and layers.",
 		Args: []app.ProgramCommandArg{
 			{
-				Arg: "[name]:[tag]", Description: "List image(s) matching the name and/or tag.\nOmmit to list all images.\nWildcards are supported.\n",
+				Arg: "[name]:[tag]", Description: "Image name and tag filter.\nExamples:\nls                  List all images.\nls my*              List all images starting with 'my'.\nls myimage:1.*      List layers of 'myimage' with tags starting with '1.'.\nls :                List layers of all images.\n",
 			},
 			{
 				Arg: "-s host:port", Description: "Run the command on the given machine. Optional.",
@@ -54,7 +54,6 @@ var programCommands = []app.ProgramCommand{
 			},
 		},
 	},
-	// {Run: test2, Cmd: "test2", Description: "This is test 2", Args: []app.ProgramCommandArg{{Arg: "sendletter", Description: "Send a letter"}, {Arg: "hello <name>", Description: "Say hello to <name>"}}},
 }
 
 type program struct {
