@@ -130,7 +130,7 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 
 	// /v2/cli/...
 	if len(paths) > 1 && paths[1] == "cli" {
-		handleGetCli(w, r)
+		cliHandleGet(w, r)
 		return
 	}
 
