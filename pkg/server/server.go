@@ -58,9 +58,7 @@ func Start(version string) {
 
 func route(w http.ResponseWriter, r *http.Request) {
 	printRequest(r)
-	if !checkHost(w, r) {
-		return
-	}
+
 	switch r.Method {
 	case "GET":
 		handleGet(w, r)
@@ -81,9 +79,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 
 func routeToken(w http.ResponseWriter, r *http.Request) {
 	printRequest(r)
-	if !checkHost(w, r) {
-		return
-	}
+
 	switch r.Method {
 	case "GET":
 		handleGetToken(w, r)

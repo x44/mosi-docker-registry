@@ -20,20 +20,6 @@ func printRequest(r *http.Request) {
 	// }
 }
 
-func checkHost(w http.ResponseWriter, r *http.Request) bool {
-	// TODO does it really make any sense to check the host name?
-	// host := r.Host
-	// if strings.Contains(host, ":") {
-	// 	host = host[:strings.Index(host, ":")]
-	// }
-
-	// if host != config.ServerHost() {
-	// 	w.WriteHeader(404)
-	// 	return false
-	// }
-	return true
-}
-
 func splitPath(r *http.Request) []string {
 	paths := strings.Split(r.URL.Path, "/")
 	var ret []string
