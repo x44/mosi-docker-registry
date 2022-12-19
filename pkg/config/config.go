@@ -32,6 +32,7 @@ type repo struct {
 type server struct {
 	Host       string `json:"host"`
 	Port       int    `json:"port"`
+	Bind       string `json:"bind"`
 	TlsCrtFile string `json:"tlsCrtFile"`
 	TlsKeyFile string `json:"tlsKeyFile"`
 }
@@ -87,7 +88,11 @@ func ServerPort() int {
 }
 
 func ServerAddress() string {
-	return ServerHost() + ":" + strconv.Itoa(ServerPort())
+	return cfg.Server.Host + ":" + strconv.Itoa(ServerPort())
+}
+
+func ServerBindAddress() string {
+	return cfg.Server.Bind + ":" + strconv.Itoa(ServerPort())
 }
 
 func TlsCrtFile() string {
@@ -265,6 +270,7 @@ func initDefaults() {
 	cfg.Server = server{
 		Host:       "mosi",
 		Port:       4444,
+		Bind:       "",
 		TlsCrtFile: "certs/mosi-example.crt",
 		TlsKeyFile: "certs/mosi-example.key",
 	}

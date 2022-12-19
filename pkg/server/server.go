@@ -28,12 +28,13 @@ func (w *serverErrorWriter) Write(buf []byte) (int, error) {
 }
 
 func Start(version string) {
-	addr := config.ServerAddress()
+	servAddr := config.ServerAddress()
+	bindAddr := config.ServerBindAddress()
 	protocol := "http"
 	if config.TlsEnabled() {
 		protocol = "https"
 	}
-	logging.Info(LOG, "Mosi %s address %s://%s, repository %s", version, protocol, addr, config.RepoDir())
+	logging.Info(LOG, "Mosi %s address %s://%s, bound %s, repository %s", version, protocol, servAddr, bindAddr, config.RepoDir())
 
 	http.HandleFunc(config.ServerPath()+"/", route)       // trailing / is required
 	http.HandleFunc(config.ServerTokenPath(), routeToken) // trailing / not allowed, otherwise all /v2/token?xxx requests get redirected
@@ -42,7 +43,7 @@ func Start(version string) {
 	serverErrorLogger := log.New(serverErrorWriter, "", 0)
 
 	srv := &http.Server{
-		Addr:     addr,
+		Addr:     bindAddr,
 		ErrorLog: serverErrorLogger,
 	}
 	var err error
