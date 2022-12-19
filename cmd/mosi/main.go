@@ -9,6 +9,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"mosi-docker-registry/pkg/app"
+	"mosi-docker-registry/pkg/certs"
 	"mosi-docker-registry/pkg/client"
 	"mosi-docker-registry/pkg/config"
 	"mosi-docker-registry/pkg/logging"
@@ -105,18 +106,19 @@ func run(exe, cwd string, cmd *app.ProgramCommand, args []string) {
 	initLogging(logging.INFO, logging.INFO, logging.INFO, true, true, true)
 
 	if cmd != nil {
-		// the CLI may be used from a remote machine without a local server & config on that remote machine, so just try to read the config, but do not create a config file
+		// The CLI may be used from a remote machine without a local server & config on that remote machine, so just try to read the config, but do not create a config file
 		config.ReadIfExists(cwd, cfgFile)
 		cmd.Run(args)
 		os.Exit(0)
 	}
 
 	if !config.ReadOrCreate(cwd, cfgFile) {
-		// config file did not exist, the default config file got created, exit and let user do initial config
+		// Config file did not exist, default config file got created. Create default certificate and exit to let user do the initial config
+		certs.GenerateDefault()
 		os.Exit(0)
 	}
 
-	// re-init logging with config log settings
+	// Re-init logging with config log settings
 	initLogging(config.LogLevelService(), config.LogLevelConsole(), config.LogLevelFile(), true, true, true)
 
 	// logging.Info("MAIN", "run()\nrunning as a service: %v\ncwd: %s\nexe: %s\ncfg: %s\nlog: %s\nrepo: %s\ncmd: %v\nargs: %v\n", !service.Interactive(), cwd, exe, cfgFile, logFile, config.RepoDir(), cmd, args)
@@ -252,20 +254,20 @@ func findDevModeProgramExe() string {
 	exe, _ := os.Executable()
 	ext := filepath.Ext(exe)
 
-	// the dev mode executable we are looking for
+	// The dev mode executable we are looking for
 	program := "program" + ext
 
 	if program == filepath.Base(exe) {
-		// we are the dev mode executable
+		// Current executable is the dev mode executable
 		return exe
 	}
 
-	// when launched via launch.json with "cwd": "_dev"
+	// When launched via launch.json with "cwd": "_dev"
 	exe, _ = filepath.Abs(program)
 	if _, err := os.Stat(exe); err == nil {
 		return exe
 	}
-	// when launched via go command in the project's root directory
+	// When launched via go command in the project's root directory
 	exe, _ = filepath.Abs(filepath.Join("_dev", program))
 	if _, err := os.Stat(exe); err == nil {
 		return exe
@@ -278,7 +280,6 @@ func findDevModeProgramExe() string {
 }
 
 func main() {
-
 	args := os.Args[1:]
 
 	isDevMode, args := isDevModeArg(args)

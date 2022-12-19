@@ -114,7 +114,6 @@ zip-init:
 	mkdir -p $(ZIP_TMP_DIR)/$(ZIP_NAME)/scripts; \
 	cp scripts/*.sh $(ZIP_TMP_DIR)/$(ZIP_NAME)/scripts/; \
 	mkdir -p $(ZIP_TMP_DIR)/$(ZIP_NAME)/certs; \
-	cp setup/certs/*.* $(ZIP_TMP_DIR)/$(ZIP_NAME)/certs; \
 
 zip-done:
 	@rm -R $(ZIP_TMP_DIR)

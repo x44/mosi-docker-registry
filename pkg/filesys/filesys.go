@@ -1,6 +1,7 @@
 package filesys
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -14,6 +15,11 @@ import (
 )
 
 var gmtTimeLoc = time.FixedZone("GMT", 0)
+
+func Exists(fn string) bool {
+	_, err := os.Stat(fn)
+	return err == nil
+}
 
 func Size(fn string) (int64, error) {
 	fileInfo, err := os.Stat(fn)
@@ -165,6 +171,10 @@ func WriteBytes(fn string, data []byte) (int, error) {
 
 	err = CloseFileOrDelete(f)
 	return len, err
+}
+
+func WriteBuffer(fn string, data *bytes.Buffer) (int, error) {
+	return WriteBytes(fn, data.Bytes())
 }
 
 func GetFirstFilenameInDir(dir string) (string, error) {

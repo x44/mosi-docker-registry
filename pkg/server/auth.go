@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mosi-docker-registry/pkg/config"
 	"mosi-docker-registry/pkg/logging"
+	"mosi-docker-registry/pkg/wildcard"
 	"net/http"
 	"strings"
 	"time"
@@ -110,7 +111,7 @@ func checkTokenAccessRights(token *token, img string, wantPush, wantAdmin bool) 
 
 func isImageAccessAllowed(allowedImages []string, wantedImage string) bool {
 	for _, img := range allowedImages {
-		if img == "*" || img == wantedImage {
+		if wantedImage == img || img == "*" || wildcard.Matches(wantedImage, img) {
 			return true
 		}
 	}

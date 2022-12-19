@@ -1,7 +1,7 @@
 package wildcard
 
 func Matches(str, pattern string) bool {
-	if pattern == "" || pattern == "*" {
+	if pattern == "*" {
 		return true
 	}
 	return runesMatch([]rune(str), []rune(pattern))

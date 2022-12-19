@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"mosi-docker-registry/pkg/logging"
+	"mosi-docker-registry/pkg/wildcard"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,16 +18,11 @@ import (
 const LOG = "Config"
 
 type config struct {
-	Repo     repo      `json:"repo"`
 	Server   server    `json:"server"`
 	Proxy    proxy     `json:"proxy"`
 	Log      log       `json:"log"`
+	Repo     repo      `json:"repo"`
 	Accounts []account `json:"accounts"`
-}
-
-type repo struct {
-	Dir                string `json:"dir"`
-	AllowAnonymousPull bool   `json:"allowAnonymousPull"`
 }
 
 type server struct {
@@ -46,6 +42,11 @@ type log struct {
 	ServiceLevel string `json:"serviceLevel"`
 	ConsoleLevel string `json:"consoleLevel"`
 	LogFileLevel string `json:"logFileLevel"`
+}
+
+type repo struct {
+	Dir                string `json:"dir"`
+	AllowAnonymousPull bool   `json:"allowAnonymousPull"`
 }
 
 type account struct {
@@ -138,7 +139,12 @@ func ServerUrl(r *http.Request) string {
 		port = cfg.Proxy.Port
 	}
 
-	return fmt.Sprintf("https://%s:%d", host, port)
+	portStr := ""
+	if port != 443 {
+		portStr = fmt.Sprintf(":%d", port)
+	}
+
+	return fmt.Sprintf("https://%s%s", host, portStr)
 }
 
 // Returns either
@@ -211,7 +217,7 @@ func GetScopeImageAccessRights(imageName, usr, pwd string, allowAnonymous bool) 
 	}
 
 	for _, image := range account.Images {
-		if image.Name == imageName || image.Name == "*" {
+		if imageName == image.Name || image.Name == "*" || wildcard.Matches(imageName, image.Name) {
 			if image.Pull || account.Admin {
 				imagesAllowedToPull = append(imagesAllowedToPull, imageName)
 			}
@@ -269,10 +275,10 @@ func initDefaults() {
 
 	cfg.Server = server{
 		Host:       "mosi",
-		Port:       4444,
+		Port:       443,
 		Bind:       "",
-		TlsCrtFile: "certs/mosi-example.crt",
-		TlsKeyFile: "certs/mosi-example.key",
+		TlsCrtFile: "certs/mosi-default.crt",
+		TlsKeyFile: "certs/mosi-default.key",
 	}
 
 	cfg.Proxy = proxy{
@@ -357,7 +363,8 @@ func read(workdir, fn string, doWrite bool) bool {
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			if doWrite {
-				logging.Info(LOG, "Creating default config: %s", fn)
+				// use fmt here
+				fmt.Printf("Creating default config: %s\n", fn)
 			}
 			didExist = false
 		} else {
