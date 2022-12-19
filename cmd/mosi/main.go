@@ -102,7 +102,7 @@ var serviceLogger service.Logger
 
 func run(exe, cwd string, cmd *app.ProgramCommand, args []string) {
 
-	InitLogging(logging.INFO, logging.INFO, logging.INFO, true, true, true)
+	initLogging(logging.INFO, logging.INFO, logging.INFO, true, true, true)
 
 	if cmd != nil {
 		// the CLI may be used from a remote machine without a local server & config on that remote machine, so just try to read the config, but do not create a config file
@@ -117,7 +117,7 @@ func run(exe, cwd string, cmd *app.ProgramCommand, args []string) {
 	}
 
 	// re-init logging with config log settings
-	InitLogging(config.LogLevelService(), config.LogLevelConsole(), config.LogLevelFile(), true, true, true)
+	initLogging(config.LogLevelService(), config.LogLevelConsole(), config.LogLevelFile(), true, true, true)
 
 	// logging.Info("MAIN", "run()\nrunning as a service: %v\ncwd: %s\nexe: %s\ncfg: %s\nlog: %s\nrepo: %s\ncmd: %v\nargs: %v\n", !service.Interactive(), cwd, exe, cfgFile, logFile, config.RepoDir(), cmd, args)
 	server.Start(Version)
@@ -132,7 +132,7 @@ func (p *program) Stop(s service.Service) error {
 	return nil
 }
 
-func InitLogging(levelService, levelConsole, levelFile int, printDate, printTime, printMicros bool) {
+func initLogging(levelService, levelConsole, levelFile int, printDate, printTime, printMicros bool) {
 	logging.Init(serviceLogger, !service.Interactive(), logFile, levelService, levelConsole, levelFile, printDate, printTime, printMicros)
 }
 
