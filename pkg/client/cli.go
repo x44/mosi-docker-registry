@@ -16,7 +16,7 @@ func handleError(msg string) {
 
 func create(args *[]string, minArgs int) *mosiClient {
 	client := createClient(*args)
-	app.ArgsClean(args)
+	app.CleanArgs(args)
 
 	if len(*args) < minArgs {
 		fmt.Printf("Not enough arguments. Run with -h for help.\n")
@@ -107,8 +107,8 @@ func List(args []string) {
 func Delete(args []string) {
 	client := create(&args, 0)
 	jsonArgs := json.NewJsonObject()
-	jsonArgs.Put("dry", app.ArgsBool("-dry", false, &args))
-	app.ArgsClean(&args)
+	jsonArgs.Put("dry", app.BoolArg("-dry", false, &args))
+	app.CleanArgs(&args)
 	jsonObject := client.Delete(makePath("/v2/cli/rm/", args), jsonArgs)
 	printTables(jsonObject)
 }

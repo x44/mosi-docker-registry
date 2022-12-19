@@ -89,7 +89,7 @@ func createClient(args []string) *mosiClient {
 	host := ""
 	port := 443
 
-	server := app.ArgsString("-s", "", &args)
+	server := app.StringArg("-s", "", &args)
 	if len(server) > 0 {
 		sa := strings.Split(server, ":")
 		host = sa[0]
@@ -106,8 +106,8 @@ func createClient(args []string) *mosiClient {
 		port = config.ServerOrProxyPort()
 	}
 
-	usr := app.ArgsString("-u", "", &args)
-	pwd := app.ArgsString("-p", "", &args)
+	usr := app.StringArg("-u", "", &args)
+	pwd := app.StringArg("-p", "", &args)
 
 	client := New(host, port, usr, pwd)
 	return &client

@@ -93,7 +93,7 @@ func GetHomeDir() string {
 	return home
 }
 
-func ArgsClean(args *[]string) {
+func CleanArgs(args *[]string) {
 	tmp := []string{}
 	for _, a := range *args {
 		if len(a) > 0 {
@@ -103,7 +103,7 @@ func ArgsClean(args *[]string) {
 	*args = tmp
 }
 
-func ArgsBool(key string, def bool, args *[]string) bool {
+func BoolArg(key string, def bool, args *[]string) bool {
 	for i, a := range *args {
 		if a == key {
 			(*args)[i] = ""
@@ -113,7 +113,7 @@ func ArgsBool(key string, def bool, args *[]string) bool {
 	return def
 }
 
-func ArgsString(key string, def string, args *[]string) string {
+func StringArg(key string, def string, args *[]string) string {
 	key2 := key + "="
 	for i, a := range *args {
 		if a == key {
