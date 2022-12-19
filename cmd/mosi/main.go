@@ -32,56 +32,56 @@ var programCommands = []app.ProgramCommand{
 	{
 		Run:         printVersion,
 		Cmd:         "version",
-		Description: "Print program version.",
+		Description: "Print version",
 		Args:        []app.ProgramCommandArg{},
 	},
 	{
 		Run:         client.List,
 		Cmd:         "ls",
-		Description: "List images, tags and layers.",
+		Description: "List images, tags and layers",
 		Args: []app.ProgramCommandArg{
 			{
-				Arg: "[name]:[tag]", Description: "Image name and tag filter.\nExamples:\n" +
-					"ls                  List all images.\n" +
-					"ls my*              List images starting with 'my'.\n" +
-					"ls myimage:1.*      List layers of image 'myimage' with tags starting with '1.'.\n" +
-					"ls :1.*             List layers of all images with tags starting with '1.'.\n" +
-					"ls :                List layers of all images.\n",
+				Arg: "[name]:[tag]", Description: "Image name and tag filter\nExamples:\n" +
+					"ls                  List all images\n" +
+					"ls my*              List images starting with 'my'\n" +
+					"ls myimage:1.*      List layers of image 'myimage' with tags starting with '1.'\n" +
+					"ls :1.*             List layers of all images with tags starting with '1.'\n" +
+					"ls :                List layers of all images\n",
 			},
 			{
-				Arg: "-s host:port", Description: "Run the command on the given machine. Optional.",
+				Arg: "-s host:port", Description: "Run the command on the given machine (optional)",
 			},
 			{
-				Arg: "-u username", Description: "Authenticate with the given username. Optional.",
+				Arg: "-u username", Description: "Authenticate with the given username (optional)",
 			},
 			{
-				Arg: "-p password", Description: "Authenticate with the given password. Optional.",
+				Arg: "-p password", Description: "Authenticate with the given password (optional)",
 			},
 		},
 	},
 	{
 		Run:         client.Delete,
 		Cmd:         "rm",
-		Description: "Delete images.",
+		Description: "Delete images",
 		Args: []app.ProgramCommandArg{
 			{
-				Arg: "[name]:[tag]", Description: "Image name and tag filter.\nExamples:\n" +
-					"ls                  Delete all images.\n" +
-					"ls my*              Delete all images starting with 'my'.\n" +
-					"ls myimage:1.*      Delete image 'myimage' with tags starting with '1.'.\n" +
-					"ls :1.*             Delete all images with tags starting with '1.'.\n",
+				Arg: "[name]:[tag]", Description: "Image name and tag filter\nExamples:\n" +
+					"ls                  Delete all images\n" +
+					"ls my*              Delete all images starting with 'my'\n" +
+					"ls myimage:1.*      Delete image 'myimage' with tags starting with '1.'\n" +
+					"ls :1.*             Delete all images with tags starting with '1.'\n",
 			},
 			{
-				Arg: "-dry", Description: "Do NOT delete anything but show what would be deleted. Optional.",
+				Arg: "-dry", Description: "Do NOT delete anything but show what would be deleted (optional)",
 			},
 			{
-				Arg: "-s host:port", Description: "Run the command on the given machine. Optional.",
+				Arg: "-s host:port", Description: "Run the command on the given machine (optional)",
 			},
 			{
-				Arg: "-u username", Description: "Authenticate with the given username. Optional.",
+				Arg: "-u username", Description: "Authenticate with the given username (optional)",
 			},
 			{
-				Arg: "-p password", Description: "Authenticate with the given password. Optional.",
+				Arg: "-p password", Description: "Authenticate with the given password (optional)",
 			},
 		},
 	},
@@ -306,22 +306,22 @@ func main() {
 	cfgFile = filepath.Join(cfgDir, cfgFileName)
 	logFile = filepath.Join(logDir, logFileName)
 
-	svcConfig := &service.Config{
+	serviceConfig := &service.Config{
 		Name:        serviceName,
 		DisplayName: serviceDisplayName,
 		Description: serviceDescription,
 	}
 
 	if isDevMode {
-		svcConfig.Name += "DEV"
-		svcConfig.DisplayName += " DEV"
-		svcConfig.Executable = exe
-		svcConfig.Arguments = []string{"-dev"}
+		serviceConfig.Name += "DEV"
+		serviceConfig.DisplayName += " DEV"
+		serviceConfig.Executable = exe
+		serviceConfig.Arguments = []string{"-dev"}
 	}
 
 	prg := &program{}
 
-	s, err := service.New(prg, svcConfig)
+	s, err := service.New(prg, serviceConfig)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
