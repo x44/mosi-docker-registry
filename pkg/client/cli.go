@@ -60,7 +60,7 @@ func printTable(table *json.JsonObject) {
 	for r := 0; r < jsonRows.Len(); r++ {
 		jsonRow := jsonRows.GetArray(r, nil)
 		if jsonRow == nil {
-			handleError("missing row in table")
+			handleError("missing table row")
 		}
 		values := jsonRow.ToStringArray("")
 		for i, value := range values {
