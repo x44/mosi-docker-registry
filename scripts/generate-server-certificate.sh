@@ -1,6 +1,6 @@
 #!/bin/bash
 
-printf "Generates a self-signed TLS certificate and key for your Mosi Docker Registry.\n\n"
+printf "Generates a self-signed TLS certificate.\n\n"
 
 name="mosi"
 printf "Certificate name [mosi]: "
