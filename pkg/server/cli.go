@@ -57,11 +57,7 @@ func cliHandleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func cliHandleGetListImages(w http.ResponseWriter, paths []string, args *json.JsonObject) {
-	img := "*"
-	tag := ""
-	if len(paths) > 0 {
-		img, tag = getImageAndTag(paths[0])
-	}
+	img, tag := getImageAndTag(paths)
 
 	json, err := repo.List(img, tag)
 
@@ -90,13 +86,9 @@ func cliHandleDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func cliHandleDeleteImages(w http.ResponseWriter, paths []string, args *json.JsonObject) {
-	img := ""
-	tag := ""
-	if len(paths) > 0 {
-		img, tag = getImageAndTag(paths[0])
-	}
-
+	img, tag := getImageAndTag(paths)
 	dry := args.GetBool("dry", false)
+
 	json, err := repo.Delete(img, tag, dry)
 
 	if err != nil {
@@ -108,7 +100,12 @@ func cliHandleDeleteImages(w http.ResponseWriter, paths []string, args *json.Jso
 	sendJson(w, 200, json)
 }
 
-func getImageAndTag(s string) (string, string) {
+func getImageAndTag(paths []string) (string, string) {
+	s := ""
+	if len(paths) > 0 {
+		s = paths[0]
+	}
+
 	if len(s) == 0 {
 		return "*", ""
 	}
