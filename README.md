@@ -4,14 +4,14 @@
 # Mosi Docker Registry
 The horrible sounding **Mosi** stands for **Most Simple**<br>
 
-Mosi is a minimalistic Docker Registry with a very small memory footprint, has a simple user account management and can - but does not need to - be installed as a system service.<br>
+Mosi is a minimalistic Docker registry with a very small memory footprint, has a simple user account management and can - but does not need to - be installed as a system service.<br>
 The system service functionality is powered by https://github.com/kardianos/service
 
 **Please note that Mosi comes without any warranty!**
 
 ## Table of Contents
 
-- [Install](#install)
+- [Installation](#installation)
 - [Configuration](#configuration)
   - [Default Config](#default-config)
   - [Config File](#config-file)
@@ -19,7 +19,7 @@ The system service functionality is powered by https://github.com/kardianos/serv
   - [Non-TLS Mode Config](#non-tls-mode-configuration)
 - [Running](#running-mosi)
 
-## Install
+## Installation
 - [Download the latest release](https://github.com/x44/mosi-docker-registry/releases/latest)
 - Extract the downloaded zip file to a directory of your choice
 
@@ -86,14 +86,14 @@ mosi
 |----------|---------------------|-------------|
 | server   | host                | Server host name. Must match the DNS name of the server certificate, when using TLS.|
 | server   | port                | Port to bind the server to. |
-| server   | bind                | Optional IP or host name to bind the server to. |
+| server   | bind                | Optional IP address or host name to bind the server to. |
 | server   | tlsCrtFile          | Relative or absolute path of the server certificate file. Required in TLS mode. Leave empty for non-TLS mode. |
 | server   | tlsKeyFile          | Relative or absolute path of the server certificate key file. Required in TLS mode. Leave empty for non-TLS mode.  |
 | proxy    | host                | Proxy host name. Required if the server is running behind a TLS terminating reverse proxy. |
 | proxy    | port                | Proxy port. Required if the server is running behind a TLS terminating reverse proxy. |
-| log      | serviceLevel        | Syslog logging level. Supported levels are `DEBUG` `INFO` `WARN` `ERROR` `SILENT`|
-| log      | consoleLevel        | Console logging level.  |
-| log      | logFileLevel        | File log level. The log file is located in the `log` sub directory. |
+| log      | serviceLevel        | Syslog level. Supported levels are `DEBUG` `INFO` `WARN` `ERROR` `SILENT`|
+| log      | consoleLevel        | Console level.  |
+| log      | logFileLevel        | Log file level. The log file is located in the `log` sub directory. |
 | repo     | dir                 | Relative or absolute repository storage directory. |
 | repo     | allowAnonymousPull  | Whether to allow pull requests by the `anonymous` user account. |
 | accounts |                     | List of user accounts. |
@@ -111,7 +111,7 @@ Mosi starts in TLS mode if the config fields `server.tlsCrtFile` and `server.tls
 To run Mosi in TLS mode...
 - A valid TLS certificate and key file are required
 - `server.name` must match one of the DNS entries in the TLS certificate file
-- The server's IP must match one of the IP entries in the TLS certificate file
+- The server's IP address must match one of the IP entries in the TLS certificate file
 - `server.tlsCrtFile` and `server.tlsKeyFile` must point to the TLS certificate and key file respectively
 
 ### Create a Self-Signed Certificate
@@ -213,15 +213,15 @@ exit
 docker-machine restart
 ```
 
-6) Add the registry IP and host name to C:\Windows\System32\drivers\etc\hosts
+6) Add the registry IP address and host name to C:\Windows\System32\drivers\etc\hosts
 ```
 192.168.1.2 mosi
 ```
 
 #### Kubernetes
-On all K8s master and worker nodes...
+On all master and worker nodes...
 
-1) Add the registry IP and Hostname to /etc/hosts
+1) Add the registry IP address and Hostname to /etc/hosts
 ```
 sudo tee -a /etc/hosts <<EOF
 192.168.1.2 mosi
