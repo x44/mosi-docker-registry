@@ -57,7 +57,7 @@ func cliHandleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func cliHandleGetListImages(w http.ResponseWriter, paths []string, args *json.JsonObject) {
-	img := ""
+	img := "*"
 	tag := ""
 	if len(paths) > 0 {
 		img, tag = getImageAndTag(paths[0])

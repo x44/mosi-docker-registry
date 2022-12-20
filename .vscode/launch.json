@@ -122,7 +122,7 @@
 			"args": [
 				"-dev",
 				"ls",
-				"vertx*",
+				// "vertx*",
 				"-s=mosi:4444", "-u=admin", "-p=admin"
 			]
 		},
