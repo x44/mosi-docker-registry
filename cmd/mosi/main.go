@@ -67,13 +67,13 @@ var programCommands = []app.ProgramCommand{
 		Args: []app.ProgramCommandArg{
 			{
 				Arg: "[name]:[tag]", Description: "Image name and tag filter\nExamples:\n" +
-					"ls                  Delete all images\n" +
-					"ls my*              Delete all images starting with 'my'\n" +
-					"ls myimage:1.*      Delete image 'myimage' with tags starting with '1.'\n" +
-					"ls :1.*             Delete all images with tags starting with '1.'\n",
+					"rm                  Delete all images\n" +
+					"rm my*              Delete all images starting with 'my'\n" +
+					"rm myimage:1.*      Delete image 'myimage' with tags starting with '1.'\n" +
+					"rm :1.*             Delete all images with tags starting with '1.'\n",
 			},
 			{
-				Arg: "-dry", Description: "Do NOT delete anything but show what would be deleted (optional)",
+				Arg: "-dry", Description: "Do NOT delete anything but show what would be deleted",
 			},
 			{
 				Arg: "-s host:port", Description: "Run the command on the given machine (optional)",
