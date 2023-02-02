@@ -9,7 +9,11 @@ DEV_DIR					:= _dev
 
 FLAGS					:= -ldflags "-X 'main.Version=$(VERSION)'"
 
-ROOT_DIR				:= $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+ROOT_FILE				:= $(abspath $(lastword $(MAKEFILE_LIST)))
+ifneq (1,$(words [$(ROOT_FILE)]))
+$(error !!! DIRECTORY CONTAINS SPACES - THIS WOULD TRASH YOUR DISK !!!)
+endif
+ROOT_DIR				:= $(dir $(ROOT_FILE))
 
 BIN_DIR_LINUX			:= $(ROOT_DIR)$(BIN_DIR)/linux/
 BIN_TOOLS_DIR_LINUX		:= $(BIN_DIR_LINUX)tools/
