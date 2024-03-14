@@ -3,9 +3,14 @@
 printf "Generates a self-signed TLS certificate.\n\n"
 
 name="mosi"
-printf "Certificate name [mosi]: "
+printf "Certificate name [$name]: "
 read s
 if [ "$s" != "" ]; then name="$s"; fi
+
+organization="Mosi Docker Registry"
+printf "Organization [$organization]: "
+read s
+if [ "$s" != "" ]; then organization="$s"; fi
 
 hosts=
 while [ true ]; do
@@ -29,9 +34,10 @@ done
 
 
 printf "\n%s\n%s\n" "Ready to generate" "--------------------------------------------------------------------------------"
-printf "cert file : $name.crt\n"
-printf " key file : $name.key\n"
-printf "    hosts : "
+printf "cert file    : $name.crt\n"
+printf " key file    : $name.key\n"
+printf "organization : $organization\n"
+printf "       hosts : "
 
 string=
 for i in "${!hosts[@]}"; do
@@ -41,7 +47,7 @@ for i in "${!hosts[@]}"; do
 	string+="DNS:$s"
 done
 printf "\n"
-printf "      IPs : "
+printf "         IPs : "
 for i in "${!ips[@]}"; do
 	s=$(echo ${ips[$i]}) # remove leading/trailing spaces
 	printf "$s "
@@ -58,7 +64,7 @@ distinguished_name = req_distinguished_name
 x509_extensions = v3_req
 prompt = no
 [req_distinguished_name]
-O = Mosi Docker Registry
+O = $organization
 [v3_req]
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer
