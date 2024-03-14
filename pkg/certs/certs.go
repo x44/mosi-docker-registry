@@ -77,7 +77,7 @@ func Generate(hosts, ips []string, crtFile, keyFile string) error {
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour * 24 * 36500),
 
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDataEncipherment | x509.KeyUsageKeyEncipherment,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDataEncipherment | x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 

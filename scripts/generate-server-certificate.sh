@@ -69,7 +69,7 @@ O = $organization
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer
 basicConstraints = CA:TRUE
-keyUsage = keyCertSign, dataEncipherment, keyEncipherment
+keyUsage = keyCertSign, dataEncipherment, keyEncipherment, digitalSignature
 extendedKeyUsage = serverAuth
 subjectAltName = $string" > $name.cfg
 
