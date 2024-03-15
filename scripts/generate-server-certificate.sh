@@ -78,4 +78,4 @@ openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout $name.key -out $na
 rm $name.cfg
 
 # P12
-openssl pkcs12 -export -in $name.crt -inkey $name.key -out $name.p12 -passout pass:mike
+#openssl pkcs12 -export -in $name.crt -inkey $name.key -out $name.p12 -passout pass:mike
