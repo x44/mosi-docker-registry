@@ -73,5 +73,9 @@ keyUsage = keyCertSign, dataEncipherment, keyEncipherment, digitalSignature
 extendedKeyUsage = serverAuth
 subjectAltName = $string" > $name.cfg
 
+# PEM
 openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout $name.key -out $name.crt -config $name.cfg -extensions 'v3_req'
 rm $name.cfg
+
+# P12
+openssl pkcs12 -export -in $name.crt -inkey $name.key -out $name.p12 -passout pass:mike
