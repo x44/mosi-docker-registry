@@ -2,8 +2,6 @@
 [![Release](https://github.com/x44/mosi-docker-registry/actions/workflows/release.yml/badge.svg)](https://github.com/x44/mosi-docker-registry/actions/workflows/release.yml)
 
 # Mosi Docker Registry
-The horrible sounding **Mosi** stands for **Most Simple**<br>
-
 Mosi is a minimalistic Docker registry with a very small memory footprint, has a simple user account management and can - but does not need to - be installed as a system service.<br>
 The system service functionality is powered by https://github.com/kardianos/service
 
@@ -135,7 +133,7 @@ O = Mosi Docker Registry
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer
 basicConstraints = CA:TRUE
-keyUsage = keyCertSign, dataEncipherment, keyEncipherment
+keyUsage = keyCertSign, dataEncipherment, keyEncipherment, digitalSignature
 extendedKeyUsage = serverAuth
 subjectAltName = DNS:mosi,IP:127.0.0.1,IP:192.168.1.2
 ```
